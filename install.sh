@@ -10,24 +10,26 @@ timestamp() {
 
 # Logging functions
 log_info() {
-	echo "$(timestamp) [INFO]    $*" | tee -a "$LOGFILE"
+	echo "$(timestamp) [INFO]    $*"
 }
 
 log_success() {
-	echo "$(timestamp) [SUCCESS] $*" | tee -a "$LOGFILE"
+	echo "$(timestamp) [SUCCESS] $*"
 }
 
 log_warning() {
-	echo "$(timestamp) [WARNING] $*" | tee -a "$LOGFILE" >&2
+	echo "$(timestamp) [WARNING] $*"
 }
 
 log_error() {
-	echo "$(timestamp) [ERROR]   $*" | tee -a "$LOGFILE" >&2
+	echo "$(timestamp) [ERROR]   $*"
 }
 
-log_info "======================"
-log_info "=== Script Started ==="
-log_info "======================"
+exec > >(tee -a "$LOGFILE") 2>&1
+
+echo "======================"
+echo "=== Script Started ==="
+echo "======================"
 
 # Detect architecture
 ARCH=$(uname -m)
@@ -156,7 +158,7 @@ check_packages() {
 	local missing_pkgs=()
 
 	if [ ${#packages[@]} -eq 0 ]; then
-		log ERROR "No packages specified for checking"
+		log_error "No packages specified for checking"
 		return 1
 	fi
 
@@ -176,13 +178,17 @@ check_packages() {
 		done
 		;;
 	*)
-		log ERROR "Unsupported distro: $DISTRO"
+		log_error "Unsupported distro: $DISTRO"
 		exit 1
 		;;
 	esac
 
 	# Print missing packages (caller can capture with command substitution)
 	echo "${missing_pkgs[@]}"
+}
+
+press_enter() {
+	read -rp "Press Enter to continue"
 }
 
 # ────────────────────────────────────────────────
@@ -194,20 +200,20 @@ install_special_packages() {
 	betterlockscreen)
 		log INFO "Installing betterlockscreen from GitHub..."
 		if wget https://raw.githubusercontent.com/betterlockscreen/betterlockscreen/main/install.sh -O - -q | bash -s user; then
-			log SUCCESS "Installed betterlockscreen"
+			log_success "Installed betterlockscreen"
 			return 0
 		else
-			log ERROR "Failed to install betterlockscreen"
+			log_error "Failed to install betterlockscreen"
 			return 1
 		fi
 		;;
 	alacritty)
-		log INFO "Installing alacritty from GitHub..."
-		log INFO "Installing dependencies for alacritty..."
+		log_info "Installing alacritty from GitHub..."
+		log_info "Installing dependencies for alacritty..."
 
 		# Install Rustup
 		if ! curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y; then
-			log ERROR "Failed to install rustup"
+			log_error "Failed to install rustup"
 			return 1
 		fi
 
@@ -222,7 +228,7 @@ install_special_packages() {
 			install_packages cmake g++ pkg-config libfontconfig1-dev libxcb-xfixes0-dev libxkbcommon-dev python3 gzip scdoc || return 1
 			;;
 		*)
-			log ERROR "Unsupported distro: $DISTRO"
+			log_error "Unsupported distro: $DISTRO"
 			return 1
 			;;
 		esac
@@ -243,11 +249,11 @@ install_special_packages() {
 		scdoc <extra/man/alacritty-bindings.5.scd | gzip -c | sudo tee /usr/local/share/man/man5/alacritty-bindings.5.gz >/dev/null || return 1
 
 		cd "$SCRIPT_DIR" || return 1
-		log SUCCESS "Installed alacritty"
+		log_success "Installed alacritty"
 		return 0
 		;;
 	*)
-		log ERROR "Unknown special package: $package_name"
+		log_error "Unknown special package: $package_name"
 		return 1
 		;;
 	esac
@@ -268,10 +274,45 @@ install_packages() {
 		fi
 	done
 
-	# Print all packages (regular + special) in one line
-	echo "${packages[*]}"
-	echo "${regular_packages[*]} ${special_packages[*]}"
-	return 0
+	# Install regular packages first
+	if [ ${#regular_packages[@]} -gt 0 ]; then
+		case "$DISTRO" in
+		arch)
+			if sudo pacman -Sy --noconfirm "${regular_packages[@]}"; then
+				log_success "Installed: ${regular_packages[*]}"
+				return 0
+			else
+				log_error "Failed to install: ${regular_packages[*]}"
+				return 1
+			fi
+			;;
+		debian)
+			if sudo apt-get update && sudo apt-get install -y "${regular_packages[@]}"; then
+				log_success "Installed: ${regular_packages[*]}"
+				return 0
+			else
+				log_error "Failed to install: ${regular_packages[*]}"
+				return 1
+			fi
+			;;
+		*)
+			log_error "Unsupported distro: $DISTRO"
+			return 1
+			;;
+		esac
+	fi
+
+	# Install special packages one by one
+	if [ ${#special_packages[@]} -gt 0 ]; then
+		log_info "Installing special packages..."
+
+		for pkg in "${special_packages[@]}"; do
+			if ! install_special_packages "$pkg"; then
+				return 1
+			fi
+		done
+		return 0
+	fi
 }
 
 install_from_array() {
@@ -290,10 +331,11 @@ install_from_array() {
 
 		if install_packages "${all_packages[@]}"; then
 			log_success "Successfully installed all packages from $array_name"
-			read -rp "Press Enter to continue..."
+			press_enter
 			return 0
 		else
 			log_error "Failed to install some packages from $array_name"
+			press_enter
 			return 1
 		fi
 	elif [ "$mode" = "select" ]; then
@@ -341,9 +383,11 @@ install_from_array() {
 			if [ -n "${install_option:-}" ] && [ "$choice" -eq "$install_option" ]; then
 				if install_packages "${all_packages[@]}"; then
 					log_success "Successfully installed all packages from $array_name"
+					press_enter
 					return 0
 				else
 					log_error "Failed to install some packages from $array_name"
+					press_enter
 					return 1
 				fi
 			fi
