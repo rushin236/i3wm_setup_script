@@ -256,6 +256,16 @@ install_special_packages() {
 		if [[ -d ./alacritty ]]; then
 			rm -rf ./alacritty
 		fi
+		# Install Rust via rustup (per-user, no sudo)
+		if [ ! -d "$HOME/.cargo" ]; then
+			echo "Installing Rust with rustup..."
+			curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+		fi
+
+		# Source cargo env for immediate use in this script
+		if [ -f "$HOME/.cargo/env" ]; then
+			source "$HOME/.cargo/env"
+		fi
 
 		git clone https://github.com/alacritty/alacritty.git || return 1
 		cd alacritty || return 1
