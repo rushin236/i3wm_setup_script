@@ -73,6 +73,7 @@ declare -A I3_PACKAGES_DESC=(
 	[dispwin]="Load ICC profiles into the display system (from ArgyllCMS)"
 	[wireplumber]="Session and policy manager for PipeWire"
 	[libnotify]="Library for sending desktop notifications"
+	[xset]="For betterlockscreen install in arch linux"
 )
 : "${I3_PACKAGES_DESC[@]}"
 
@@ -201,7 +202,7 @@ install_special_packages() {
 		log_info "Installing i3lock-color from github"
 		case "$DISTRO" in
 		arch)
-			support_pkgs=(autoconf cairo fontconfig gcc libev libjpeg-turbo libxinerama libxkbcommon-x11 libxrandr pam pkgconf xcb-util-image xcb-util-xrm)
+			support_pkgs=(autoconf cairo fontconfig gcc libev libjpeg-turbo libxinerama libxkbcommon-x11 libxrandr pam pkgconf xcb-util-image xcb-util-xrm xorg-set)
 			install_packages support_pkgs -d || return 1
 			;;
 		debian)
