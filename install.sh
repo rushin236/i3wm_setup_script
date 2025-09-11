@@ -178,10 +178,6 @@ check_packages() {
 			fi
 		done
 		;;
-	*)
-		log_error "Unsupported distro: $DISTRO"
-		exit 1
-		;;
 	esac
 
 	# Print missing packages (caller can capture with command substitution)
@@ -231,7 +227,6 @@ install_special_packages() {
 		sudo cp betterlockscreen /usr/local/bin/ || return 1
 		cd "$SCRIPT_DIR" || return 1
 		log_success "Installed betterlockscreen..."
-		return 0
 		;;
 	alacritty)
 		log_info "Installing alacritty from GitHub..."
@@ -280,9 +275,9 @@ install_special_packages() {
 
 		cd "$SCRIPT_DIR" || return 1
 		log_success "Installed alacritty..."
-		return 0
 		;;
 	esac
+	return 0
 }
 
 install_packages() {
@@ -564,7 +559,7 @@ install_required_packages() {
 		required_pkgs=(wget base-devel unzip)
 		;;
 	debian)
-		required_pkgs=(wget build-essential uzip)
+		required_pkgs=(wget build-essential unzip)
 		;;
 	*)
 		log_error "Unsupported distro: $DISTRO"
