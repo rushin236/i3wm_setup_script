@@ -202,11 +202,14 @@ install_special_packages() {
 		log_info "Installing i3lock-color from github"
 		case "$DISTRO" in
 		arch)
-			support_pkgs=(autoconf cairo fontconfig gcc libev libjpeg-turbo libxinerama libxkbcommon-x11 libxrandr pam pkgconf xcb-util-image xcb-util-xrm xorg-xset)
+			support_pkgs=(autoconf cairo fontconfig gcc libev libjpeg-turbo libxinerama libxkbcommon-x11 libxrandr pam pkgconf
+				xcb-util-image xcb-util-xrm imagemagick xorg-xdpyinfo xorg-xrdb xorg-xset)
 			install_packages support_pkgs -d || return 1
 			;;
 		debian)
-			support_pkgs=(autoconf gcc make pkg-config libpam0g-dev libcairo2-dev libfontconfig1-dev libxcb-composite0-dev libev-dev libx11-xcb-dev libxcb-xkb-dev libxcb-xinerama0-dev libxcb-randr0-dev libxcb-image0-dev libxcb-util0-dev libxcb-xrm-dev libxkbcommon-dev libxkbcommon-x11-dev libjpeg-dev libgif-dev)
+			support_pkgs=(autoconf gcc make pkg-config libpam0g-dev libcairo2-dev libfontconfig1-dev libxcb-composite0-dev libev-dev
+				libx11-xcb-dev libxcb-xkb-dev libxcb-xinerama0-dev libxcb-randr0-dev libxcb-image0-dev libxcb-util0-dev libxcb-xrm-dev
+				libxkbcommon-dev libxkbcommon-x11-dev libjpeg-dev libgif-dev imagemagick x11-utils)
 			install_packages support_pkgs -d || return 1
 			;;
 		esac
