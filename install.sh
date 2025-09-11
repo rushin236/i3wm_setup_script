@@ -195,9 +195,24 @@ press_enter() {
 # Special package installations (not in official repos)
 install_special_packages() {
 	local package_name=$1
-
+	local support_pkgs=()
 	case "$package_name" in
 	betterlockscreen)
+		log_info "Installing i3lock-color from github"
+		case "$DISTRO" in
+		arch)
+			support_pkgs=(autoconf cairo fontconfig gcc libev libjpeg-turbo libxinerama libxkbcommon-x11 libxrandr pam pkgconf xcb-util-image xcb-util-xrm)
+			install_packages support_pkgs -d || return 1
+			;;
+		debian)
+			support_pkgs=(autoconf gcc make pkg-config libpam0g-dev libcairo2-dev libfontconfig1-dev libxcb-composite0-dev libev-dev libx11-xcb-dev libxcb-xkb-dev libxcb-xinerama0-dev libxcb-randr0-dev libxcb-image0-dev libxcb-util0-dev libxcb-xrm-dev libxkbcommon-dev libxkbcommon-x11-dev libjpeg-dev libgif-dev)
+			install_packages support_pkgs -d || return 1
+			;;
+		esac
+		git clone https://github.com/Raymo111/i3lock-color.git || return 1
+		cd i3lock-color || return 1
+		./install-i3lock-color.sh || return 1
+		cd .. || return 1
 		log_info "Installing betterlockscreen from GitHub..."
 		if wget https://raw.githubusercontent.com/betterlockscreen/betterlockscreen/main/install.sh -O - -q | bash -s user; then
 			log_success "Installed betterlockscreen"
@@ -230,10 +245,6 @@ install_special_packages() {
 		debian)
 			support_pkgs=(cmake g++ pkg-config libfontconfig1-dev libxcb-xfixes0-dev libxkbcommon-dev python3 gzip scdoc)
 			install_packages support_pkgs -d || return 1
-			;;
-		*)
-			log_error "Unsupported distro: $DISTRO"
-			return 1
 			;;
 		esac
 
