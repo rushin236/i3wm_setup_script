@@ -198,7 +198,7 @@ install_special_packages() {
 
 	case "$package_name" in
 	betterlockscreen)
-		log INFO "Installing betterlockscreen from GitHub..."
+		log_info "Installing betterlockscreen from GitHub..."
 		if wget https://raw.githubusercontent.com/betterlockscreen/betterlockscreen/main/install.sh -O - -q | bash -s user; then
 			log_success "Installed betterlockscreen"
 			return 0
@@ -256,17 +256,13 @@ install_special_packages() {
 		log_success "Installed alacritty"
 		return 0
 		;;
-	*)
-		log_error "Unknown special package: $package_name"
-		return 1
-		;;
 	esac
 }
 
 install_packages() {
-  local -n arr=$1
+	local -n arr=$1
 	local mode=$2
-  local array_name=$1
+	local array_name=$1
 
 	# Separate regular and special packages
 	local regular_packages=()
@@ -284,8 +280,11 @@ install_packages() {
 		fi
 	done
 
-  echo "Regular pkgs: ${regular_packages[*]}"
-  echo "Special pkgs: ${special_packages[*]}"
+	echo "Regular pkgs: ${regular_packages[*]}"
+	echo "Special pkgs: ${special_packages[*]}"
+
+	local exit_code=0
+
 	# Install regular packages first
 	if [ ${#regular_packages[@]} -gt 0 ]; then
 		log_info "Installing regular packages: ${regular_packages[*]}"
@@ -293,28 +292,22 @@ install_packages() {
 		arch)
 			if sudo pacman -Sy --noconfirm "${regular_packages[@]}"; then
 				log_success "Installed: ${regular_packages[*]}"
-				return 0
 			else
 				log_error "Failed to install: ${regular_packages[*]}"
-				return 1
+				exit_code=1
 			fi
 			;;
 		debian)
 			if sudo apt-get update && sudo apt-get install -y "${regular_packages[@]}"; then
 				log_success "Installed: ${regular_packages[*]}"
-				return 0
 			else
 				log_error "Failed to install: ${regular_packages[*]}"
-				return 1
+				exit_code=1
 			fi
 			;;
-		*)
-			log_error "Unsupported distro: $DISTRO"
-			return 1
-			;;
 		esac
-  else
-    echo "Got no regular packages to install"
+	else
+		echo "Got no regular packages to install"
 	fi
 
 	# Install special packages one by one
@@ -323,15 +316,15 @@ install_packages() {
 
 		for pkg in "${special_packages[@]}"; do
 			if ! install_special_packages "$pkg"; then
-				return 1
+				exit_code=1
+				break
 			fi
 		done
-		return 0
-  else
-    echo "Got no special packages to install"
+	else
+		echo "Got no special packages to install"
 	fi
 
-	return 0
+	return "$exit_code"
 }
 
 install_from_array() {
@@ -553,7 +546,7 @@ install_required_packages() {
 		;;
 	esac
 
-	log INFO "Checking required packages..."
+	log_info "Checking required packages..."
 	local missing_pkgs
 
 	read -ra missing_pkgs <<<"$(check_packages "${required_pkgs[@]}")"
