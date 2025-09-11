@@ -220,12 +220,16 @@ install_special_packages() {
 		# Set env for cargo (important in same shell)
 		export PATH="$HOME/.cargo/bin:$PATH"
 
+		local support_pkgs=()
+		: "${support_pkgs[@]}"
 		case "$DISTRO" in
 		arch)
-			install_packages cmake freetype2 fontconfig pkg-config make libxcb libxkbcommon python gzip scdoc || return 1
+			support_pkgs=(cmake freetype2 fontconfig pkg-config make libxcb libxkbcommon python gzip scdoc)
+			install_packages support_pkgs -d || return 1
 			;;
 		debian)
-			install_packages cmake g++ pkg-config libfontconfig1-dev libxcb-xfixes0-dev libxkbcommon-dev python3 gzip scdoc || return 1
+			support_pkgs=(cmake g++ pkg-config libfontconfig1-dev libxcb-xfixes0-dev libxkbcommon-dev python3 gzip scdoc)
+			install_packages support_pkgs -d || return 1
 			;;
 		*)
 			log_error "Unsupported distro: $DISTRO"
@@ -260,22 +264,31 @@ install_special_packages() {
 }
 
 install_packages() {
-	local packages=("$@")
+  local -n arr=$1
+	local mode=$2
+  local array_name=$1
 
 	# Separate regular and special packages
 	local regular_packages=()
 	local special_packages=()
 
-	for pkg in "${packages[@]}"; do
+	for pkg in "${arr[@]}"; do
 		if [[ -n "${SPECIAL_PACKAGES[$pkg]}" ]]; then
 			special_packages+=("${SPECIAL_PACKAGES[$pkg]}")
 		else
-			regular_packages+=("${ALL_PACKAGES[$pkg]}")
+			if [ "$mode" = "-n" ]; then
+				regular_packages+=("${ALL_PACKAGES[$pkg]}")
+			elif [ "$mode" = "-d" ]; then
+				regular_packages+=("$pkg")
+			fi
 		fi
 	done
 
+  echo "Regular pkgs: ${regular_packages[*]}"
+  echo "Special pkgs: ${special_packages[*]}"
 	# Install regular packages first
 	if [ ${#regular_packages[@]} -gt 0 ]; then
+		log_info "Installing regular packages: ${regular_packages[*]}"
 		case "$DISTRO" in
 		arch)
 			if sudo pacman -Sy --noconfirm "${regular_packages[@]}"; then
@@ -300,11 +313,13 @@ install_packages() {
 			return 1
 			;;
 		esac
+  else
+    echo "Got no regular packages to install"
 	fi
 
 	# Install special packages one by one
 	if [ ${#special_packages[@]} -gt 0 ]; then
-		log_info "Installing special packages..."
+		log_info "Installing special packages: ${special_packages[*]}"
 
 		for pkg in "${special_packages[@]}"; do
 			if ! install_special_packages "$pkg"; then
@@ -312,7 +327,11 @@ install_packages() {
 			fi
 		done
 		return 0
+  else
+    echo "Got no special packages to install"
 	fi
+
+	return 0
 }
 
 install_from_array() {
@@ -329,7 +348,7 @@ install_from_array() {
 
 		log_info "Installing all packages from $array_name..."
 
-		if install_packages "${all_packages[@]}"; then
+		if install_packages all_packages -n; then
 			log_success "Successfully installed all packages from $array_name"
 			press_enter
 			return 0
@@ -381,7 +400,7 @@ install_from_array() {
 
 			# Check for install option
 			if [ -n "${install_option:-}" ] && [ "$choice" -eq "$install_option" ]; then
-				if install_packages "${all_packages[@]}"; then
+				if install_packages all_packages -n; then
 					log_success "Successfully installed all packages from $array_name"
 					press_enter
 					return 0
@@ -522,10 +541,14 @@ install_required_packages() {
 	local required_pkgs=()
 
 	case "$DISTRO" in
-	arch) required_pkgs=(wget base-devel) ;;
-	debian) required_pkgs=(wget build-essential) ;;
+	arch)
+		required_pkgs=(wget base-devel)
+		;;
+	debian)
+		required_pkgs=(wget build-essential)
+		;;
 	*)
-		log ERROR "Unsupported distro: $DISTRO"
+		log_error "Unsupported distro: $DISTRO"
 		exit 1
 		;;
 	esac
@@ -537,8 +560,8 @@ install_required_packages() {
 
 	if [ ${#missing_pkgs[@]} -ne 0 ]; then
 		log_info "Missing packages: ${missing_pkgs[*]}"
-		if install_packages "${missing_pkgs[@]}"; then
-			log_success "Successfully installed all required packages ${required_pkgs[*]}"
+		if install_packages missing_pkgs -d; then
+			log_success "Successfully installed all required packages ${missing_pkgs[*]}"
 			return 0
 		else
 			log_error "Failed to install some packages"
