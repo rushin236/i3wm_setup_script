@@ -199,6 +199,9 @@ install_special_packages() {
 	local support_pkgs=()
 	case "$package_name" in
 	betterlockscreen)
+		if [[ -d ./i3lock-color ]]; then
+			rm -rf ./i3lock-color
+		fi
 		log_info "Installing i3lock-color from github"
 		case "$DISTRO" in
 		arch)
@@ -218,11 +221,15 @@ install_special_packages() {
 		./install-i3lock-color.sh || return 1
 		cd .. || return 1
 		log_info "Installing betterlockscreen from GitHub..."
+		if [[ -d ./betterlockscreen-main ]]; then
+			rm -rf ./betterlockscreen-main
+		fi
 		wget https://github.com/betterlockscreen/betterlockscreen/archive/refs/heads/main.zip || return 1
 		unzip main.zip || return 1
 		cd betterlockscreen-main/ || return 1
 		chmod u+x betterlockscreen || return 1
-		cp betterlockscreen /usr/local/bin/ || return 1
+		sudo cp betterlockscreen /usr/local/bin/ || return 1
+		cd "$SCRIPT_DIR" || return 1
 		log_success "Installed betterlockscreen..."
 		;;
 	alacritty)
@@ -250,6 +257,10 @@ install_special_packages() {
 			install_packages support_pkgs -d || return 1
 			;;
 		esac
+
+		if [[ -d ./alacritty ]]; then
+			rm -rf ./alacritty
+		fi
 
 		git clone https://github.com/alacritty/alacritty.git || return 1
 		cd alacritty || return 1
