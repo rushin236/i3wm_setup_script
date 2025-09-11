@@ -82,6 +82,8 @@ declare -A DEV_PACKAGES_DESC=(
 	[alacritty]="GPU-accelerated terminal emulator"
 	[tmux]="Terminal multiplexer for managing sessions"
 	[zsh]="Powerful interactive shell"
+	[fzf]="Tool required for nvim easy fuzzy finding"
+	[miniconda]="A mini version of Conda for python"
 )
 : "${DEV_PACKAGES_DESC[@]}"
 
@@ -120,6 +122,8 @@ declare -A DEBIAN_PACKAGES=(
 declare -A SPECIAL_PACKAGES=(
 	[alacritty]="alacritty"
 	[betterlockscreen]="betterlockscreen"
+	[fzf]="fzf"
+	[miniconda]="miniconda"
 )
 
 # ────────────────────────────────────────────────
@@ -256,6 +260,7 @@ install_special_packages() {
 		if [[ -d ./alacritty ]]; then
 			rm -rf ./alacritty
 		fi
+
 		# Install Rust via rustup (per-user, no sudo)
 		if [ ! -d "$HOME/.cargo" ]; then
 			echo "Installing Rust with rustup..."
@@ -284,6 +289,28 @@ install_special_packages() {
 
 		cd "$SCRIPT_DIR" || return 1
 		log_success "Installed alacritty..."
+		;;
+	fzf)
+		log_info "Installing fzf from github..."
+
+		if [[ -d "$HOME/.fzf" ]]; then
+			rm -rf "$HOME/.fzf"
+		fi
+
+		git clone --depth 1 https://github.com/junegunn/fzf.git ~/.fzf || return 1
+		~/.fzf/install || return 1
+		log_success "Installed fzf..."
+		;;
+	conda)
+		log_info "Installing miniconda using wget..."
+		wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh || return 1
+
+		if [[ -d "$HOME/miniconda3" ]]; then
+			rm -rf "$HOME/miniconda3"
+		fi
+
+		chmod +x ./Miniconda3-latest-Linux-x86_64.sh || return 1
+		log_success "Installed miniconda..."
 		;;
 	esac
 	return 0
@@ -565,10 +592,10 @@ install_required_packages() {
 
 	case "$DISTRO" in
 	arch)
-		required_pkgs=(wget base-devel unzip)
+		required_pkgs=(wget base-devel unzip curl)
 		;;
 	debian)
-		required_pkgs=(wget build-essential unzip)
+		required_pkgs=(wget build-essential unzip curl)
 		;;
 	*)
 		log_error "Unsupported distro: $DISTRO"
