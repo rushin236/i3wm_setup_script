@@ -84,6 +84,7 @@ declare -A DEV_PACKAGES_DESC=(
 	[zsh]="Powerful interactive shell"
 	[fzf]="Tool required for nvim easy fuzzy finding"
 	[miniconda]="A mini version of Conda for python"
+	[node]="Required for nvim and web dev"
 )
 : "${DEV_PACKAGES_DESC[@]}"
 
@@ -124,6 +125,7 @@ declare -A SPECIAL_PACKAGES=(
 	[betterlockscreen]="betterlockscreen"
 	[fzf]="fzf"
 	[miniconda]="miniconda"
+	[node]="node"
 )
 
 # ────────────────────────────────────────────────
@@ -312,6 +314,23 @@ install_special_packages() {
 		chmod +x ./Miniconda3-latest-Linux-x86_64.sh || return 1
 		./Miniconda3-latest-Linux-x86_64.sh
 		log_success "Installed miniconda..."
+		;;
+	node)
+		log_info "Installing node..."
+		# Step 1: Remove old nvm installation if exists
+		if [ -d "$HOME/.nvm" ]; then
+			echo "Removing old nvm installation..."
+			rm -rf "$HOME/.nvm"
+		fi
+		# Download and install nvm:
+		curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash
+		# in lieu of restarting the shell
+		export NVM_DIR="$HOME/.nvm"
+		# shellcheck disable=SC1090
+		. "$NVM_DIR/nvm.sh" || return 1
+		# Download and install Node.js:
+		nvm install 22 || return 1
+		log_success "Installed node..."
 		;;
 	esac
 	return 0
