@@ -218,13 +218,12 @@ install_special_packages() {
 		./install-i3lock-color.sh || return 1
 		cd .. || return 1
 		log_info "Installing betterlockscreen from GitHub..."
-		if wget https://raw.githubusercontent.com/betterlockscreen/betterlockscreen/main/install.sh -O - -q | bash -s user; then
-			log_success "Installed betterlockscreen"
-			return 0
-		else
-			log_error "Failed to install betterlockscreen"
-			return 1
-		fi
+		wget https://github.com/betterlockscreen/betterlockscreen/archive/refs/heads/main.zip || return 1
+		unzip main.zip || return 1
+		cd betterlockscreen-main/ || return 1
+		chmod u+x betterlockscreen || return 1
+		cp betterlockscreen /usr/local/bin/ || return 1
+		log_success "Installed betterlockscreen..."
 		;;
 	alacritty)
 		log_info "Installing alacritty from GitHub..."
@@ -268,7 +267,7 @@ install_special_packages() {
 		scdoc <extra/man/alacritty-bindings.5.scd | gzip -c | sudo tee /usr/local/share/man/man5/alacritty-bindings.5.gz >/dev/null || return 1
 
 		cd "$SCRIPT_DIR" || return 1
-		log_success "Installed alacritty"
+		log_success "Installed alacritty..."
 		return 0
 		;;
 	esac
@@ -550,10 +549,10 @@ install_required_packages() {
 
 	case "$DISTRO" in
 	arch)
-		required_pkgs=(wget base-devel)
+		required_pkgs=(wget base-devel unzip)
 		;;
 	debian)
-		required_pkgs=(wget build-essential)
+		required_pkgs=(wget build-essential uzip)
 		;;
 	*)
 		log_error "Unsupported distro: $DISTRO"
