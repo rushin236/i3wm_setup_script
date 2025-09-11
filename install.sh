@@ -73,7 +73,6 @@ declare -A I3_PACKAGES_DESC=(
 	[dispwin]="Load ICC profiles into the display system (from ArgyllCMS)"
 	[wireplumber]="Session and policy manager for PipeWire"
 	[libnotify]="Library for sending desktop notifications"
-	[xset]="For betterlockscreen install in arch linux"
 )
 : "${I3_PACKAGES_DESC[@]}"
 
