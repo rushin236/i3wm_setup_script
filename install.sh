@@ -400,11 +400,11 @@ install_from_array() {
 		log_info "Installing all packages from $array_name..."
 
 		if install_packages all_packages -n; then
-			log_success "Successfully installed all packages from $array_name"
+			log_success "Successfully installed all packages from all_packages"
 			press_enter
 			return 0
 		else
-			log_error "Failed to install some packages from $array_name"
+			log_error "Failed to install some packages from all_packages"
 			press_enter
 			return 1
 		fi
@@ -451,12 +451,12 @@ install_from_array() {
 
 			# Check for install option
 			if [ -n "${install_option:-}" ] && [ "$choice" -eq "$install_option" ]; then
-				if install_packages all_packages -n; then
-					log_success "Successfully installed all packages from $array_name"
+				if install_packages selected_pkg -n; then
+					log_success "Successfully installed all packages from selected_pkg"
 					press_enter
 					return 0
 				else
-					log_error "Failed to install some packages from $array_name"
+					log_error "Failed to install some packages from selected_pkg"
 					press_enter
 					return 1
 				fi
