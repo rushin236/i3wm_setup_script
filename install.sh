@@ -231,6 +231,7 @@ install_special_packages() {
 		sudo cp betterlockscreen /usr/local/bin/ || return 1
 		cd "$SCRIPT_DIR" || return 1
 		log_success "Installed betterlockscreen..."
+		return 0
 		;;
 	alacritty)
 		log_info "Installing alacritty from GitHub..."
