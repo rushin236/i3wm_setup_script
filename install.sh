@@ -310,6 +310,7 @@ install_special_packages() {
 		fi
 
 		chmod +x ./Miniconda3-latest-Linux-x86_64.sh || return 1
+		./Miniconda3-latest-Linux-x86_64.sh
 		log_success "Installed miniconda..."
 		;;
 	esac
