@@ -301,7 +301,7 @@ install_special_packages() {
 		~/.fzf/install || return 1
 		log_success "Installed fzf..."
 		;;
-	conda)
+	miniconda)
 		log_info "Installing miniconda using wget..."
 		wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh || return 1
 
