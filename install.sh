@@ -73,6 +73,14 @@ declare -A I3_PACKAGES_DESC=(
 	[dispwin]="Load ICC profiles into the display system (from ArgyllCMS)"
 	[wireplumber]="Session and policy manager for PipeWire"
 	[libnotify]="Library for sending desktop notifications"
+	[policykit]="PolicyKit authentication agent for GNOME/GTK, required for managing system permissions"
+	[feh]="Lightweight image viewer and wallpaper setter for X11"
+	[dex]="Desktop entry executor for autostarting .desktop files in lightweight environments"
+	[networkmanager]="Daemon for managing network connections (wired and wireless)"
+	[network_manager_applet]="System tray applet for NetworkManager to manage connections via GUI"
+	[xautolock]="Automatic screen locking daemon after a period of inactivity"
+	[easyeffects]="Advanced audio effects and equalizer for PipeWire or PulseAudio"
+	[thunar]="A good lightweight file explorer"
 )
 : "${I3_PACKAGES_DESC[@]}"
 
@@ -103,6 +111,11 @@ declare -A COMMON_PACKAGES=(
 	[nvim]="neovim"
 	[tmux]="tmux"
 	[zsh]="zsh"
+	[feh]="feh"
+	[dex]="dex"
+	[networkmanager]="networkmanager"
+	[network_manager_applet]="network-manager-applet"
+	[xautolock]="xautolock"
 )
 
 # Arch-specific package names
@@ -110,6 +123,7 @@ declare -A ARCH_PACKAGES=(
 	[dispwin]="argyllcms"
 	[libnotify]="libnotify"
 	[xrandr]="xorg-xrandr"
+	[policykit]="polkit-gnome"
 )
 
 # Debian-specific package names
@@ -117,6 +131,7 @@ declare -A DEBIAN_PACKAGES=(
 	[dispwin]="argyll"
 	[libnotify]="libnotify-bin"
 	[xrandr]="x11-xserver-utils"
+	[policykit]="policykit-1-gnome"
 )
 
 # Always included, handled specially
@@ -126,6 +141,8 @@ declare -A SPECIAL_PACKAGES=(
 	[fzf]="fzf"
 	[miniconda]="miniconda"
 	[node]="node"
+	[easyeffects]="easyeffects"
+	[thunar]="thunar"
 )
 
 # ────────────────────────────────────────────────
@@ -198,12 +215,17 @@ press_enter() {
 install_special_packages() {
 	local package_name=$1
 	local support_pkgs=()
+	: "${support_pkgs[@]}"
 	case "$package_name" in
 	betterlockscreen)
+		log_info "Installing $package_name..."
+
 		if [[ -d ./i3lock-color ]]; then
 			rm -rf ./i3lock-color
 		fi
-		log_info "Installing i3lock-color from github"
+
+		log_info "Installing Desps for $package_name"
+
 		case "$DISTRO" in
 		arch)
 			support_pkgs=(autoconf cairo fontconfig gcc libev libjpeg-turbo libxinerama libxkbcommon-x11 libxrandr pam pkgconf
@@ -217,37 +239,33 @@ install_special_packages() {
 			install_packages support_pkgs -d || return 1
 			;;
 		esac
+
 		git clone https://github.com/Raymo111/i3lock-color.git || return 1
 		cd i3lock-color || return 1
 		./install-i3lock-color.sh || return 1
-		cd .. || return 1
-		log_info "Installing betterlockscreen from GitHub..."
+		cd "$SCRIPT_DIR" || return 1
+		rm -rf ./i3lock-color || return 1
+
 		if [[ -d ./betterlockscreen-main ]]; then
 			rm -rf ./betterlockscreen-main
 		fi
+
 		wget https://github.com/betterlockscreen/betterlockscreen/archive/refs/heads/main.zip || return 1
 		unzip main.zip || return 1
 		cd betterlockscreen-main/ || return 1
 		chmod u+x betterlockscreen || return 1
 		sudo cp betterlockscreen /usr/local/bin/ || return 1
 		cd "$SCRIPT_DIR" || return 1
-		log_success "Installed betterlockscreen..."
+		rm -rf ./betterlockscreen-main || return 1
+		log_success "Installed $package_name..."
 		;;
 	alacritty)
-		log_info "Installing alacritty from GitHub..."
-		log_info "Installing dependencies for alacritty..."
+		log_info "Installing $package_name..."
+		log_info "Installing Desps for $package_name"
 
-		# Install Rustup
-		if ! curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y; then
-			log_error "Failed to install rustup"
-			return 1
-		fi
+		[ -d "$HOME/.cargo" ] && rm -rf "$HOME/.cargo"
+		[ -d "$HOME/.rustup" ] && rm -rf "$HOME/.rustup"
 
-		# Set env for cargo (important in same shell)
-		export PATH="$HOME/.cargo/bin:$PATH"
-
-		local support_pkgs=()
-		: "${support_pkgs[@]}"
 		case "$DISTRO" in
 		arch)
 			support_pkgs=(cmake freetype2 fontconfig pkg-config make libxcb libxkbcommon python gzip scdoc)
@@ -290,10 +308,11 @@ install_special_packages() {
 		scdoc <extra/man/alacritty-bindings.5.scd | gzip -c | sudo tee /usr/local/share/man/man5/alacritty-bindings.5.gz >/dev/null || return 1
 
 		cd "$SCRIPT_DIR" || return 1
-		log_success "Installed alacritty..."
+		rm -rf ./alacritty || return 1
+		log_success "Installed $package_name..."
 		;;
 	fzf)
-		log_info "Installing fzf from github..."
+		log_info "Installing $package_name..."
 
 		if [[ -d "$HOME/.fzf" ]]; then
 			rm -rf "$HOME/.fzf"
@@ -301,10 +320,10 @@ install_special_packages() {
 
 		git clone --depth 1 https://github.com/junegunn/fzf.git ~/.fzf || return 1
 		~/.fzf/install || return 1
-		log_success "Installed fzf..."
+		log_success "Installed $package_name..."
 		;;
 	miniconda)
-		log_info "Installing miniconda using wget..."
+		log_info "Installing $package_name..."
 		wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh || return 1
 
 		if [[ -d "$HOME/miniconda3" ]]; then
@@ -313,24 +332,106 @@ install_special_packages() {
 
 		chmod +x ./Miniconda3-latest-Linux-x86_64.sh || return 1
 		./Miniconda3-latest-Linux-x86_64.sh
-		log_success "Installed miniconda..."
+		rm -rf ./Miniconda3-latest-Linux-x86_64.sh
+
+		log_success "Installed $package_name..."
 		;;
 	node)
-		log_info "Installing node..."
+		log_info "Installing $package_name..."
+
 		# Step 1: Remove old nvm installation if exists
 		if [ -d "$HOME/.nvm" ]; then
-			echo "Removing old nvm installation..."
 			rm -rf "$HOME/.nvm"
 		fi
+
 		# Download and install nvm:
 		curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash
+
 		# in lieu of restarting the shell
 		export NVM_DIR="$HOME/.nvm"
+
 		# shellcheck disable=SC1090
 		. "$NVM_DIR/nvm.sh" || return 1
+
 		# Download and install Node.js:
 		nvm install 22 || return 1
-		log_success "Installed node..."
+
+		log_success "Installed $package_name..."
+		;;
+	easyeffects)
+		log_info "Installing $package_name..."
+		log_info "Installing Desps for $package_name"
+
+		case "$DISTRO" in
+		arch)
+			# Core dependencies + plugins (AUR)
+			support_pkgs=(easyeffects calf lsp-plugins-lv2 zam-plugins-lv2 mda.lv2)
+			install_packages support_pkgs -d || return 1
+			;;
+		debian)
+			# Core dependencies
+			support_pkgs=(easyeffects lsp-plugins-lv2 lsp-plugins calf-plugins mda-lv2 zam-plugins)
+			install_packages support_pkgs -d || return 1
+			;;
+		esac
+
+		log_success "Installed $package_name..."
+		;;
+	thunar)
+		log_info "Installing $package_name..."
+		log_info "Installing Desps for $package_name"
+
+		case "$DISTRO" in
+		arch)
+			# Core dependencies + plugins (AUR)
+			support_pkgs=(thunar thunar-volman gvfs gvfs-mtp gvfs-smb gvfs-afc gvfs-goa exo
+				tumbler libmtp fuse2 xdg-user-dirs)
+			install_packages support_pkgs -d || return 1
+			;;
+		debian)
+			# Core dependencies
+			support_pkgs=(thunar thunar-volman gvfs gvfs-backends gvfs-fuse gvfs-mtp gvfs-smb
+				gvfs-afc gvfs-goa exo-utils tumbler libmtp9 fuse xdg-user-dirs)
+			install_packages support_pkgs -d || return 1
+			;;
+		esac
+
+		log_success "Installed $package_name..."
+		;;
+	coolercontrol)
+		log_info "Installing $package_name..."
+		log_info "Installing Desps for $package_name"
+		case "$DISTRO" in
+		arch)
+			# Core dependencies + plugins (AUR)
+			support_pkgs=(lm_sensors)
+			install_packages support_pkgs -d || return 1
+			;;
+		debian)
+			# Core dependencies
+			support_pkgs=(lm-sensors)
+			install_packages support_pkgs -d || return 1
+			;;
+		esac
+		# Clone the repo
+		git clone https://gitlab.com/coolercontrol/coolercontrol.git /tmp/coolercontrol
+		cd /tmp/coolercontrol || exit 1
+
+		# Switch to main branch and pull latest
+		git checkout main
+		git pull
+
+		# Build & install all components
+		make install-source -j4
+
+		# Enable daemon
+		sudo systemctl daemon-reload
+		sudo systemctl enable --now coolercontrold
+
+		# Clean up
+		cd "$SCRIPT_DIR" || return 1
+		rm -rf /tmp/coolercontrol
+		log_success "Installed $package_name..."
 		;;
 	esac
 	return 0
@@ -612,10 +713,10 @@ install_required_packages() {
 
 	case "$DISTRO" in
 	arch)
-		required_pkgs=(wget base-devel unzip curl)
+		required_pkgs=(wget base-devel unzip curl make python libdrm)
 		;;
 	debian)
-		required_pkgs=(wget build-essential unzip curl)
+		required_pkgs=(wget build-essential unzip curl make python3 python3-pip libdrm-dev)
 		;;
 	*)
 		log_error "Unsupported distro: $DISTRO"
