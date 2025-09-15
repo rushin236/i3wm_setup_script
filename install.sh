@@ -110,7 +110,6 @@ declare -A COMMON_PACKAGES=(
 	[picom]="picom"
 	[autorandr]="autorandr"
 	[wireplumber]="wireplumber"
-	[nvim]="neovim"
 	[tmux]="tmux"
 	[zsh]="zsh"
 	[feh]="feh"
@@ -138,6 +137,7 @@ declare -A DEBIAN_PACKAGES=(
 
 # Always included, handled specially
 declare -A SPECIAL_PACKAGES=(
+	[nvim]="neovim"
 	[alacritty]="alacritty"
 	[betterlockscreen]="betterlockscreen"
 	[fzf]="fzf"
@@ -284,11 +284,11 @@ install_special_packages() {
 		[ -d /tmp/i3lock-color ] && rm -rf /tmp/i3lock-color
 
 		# Build from source
-		git clone https://github.com/Raymo111/i3lock-color.git /tmp/i3lock-color || return 1
+		git clone https://github.com/Raymo111/i3lock-color.git /tmp/i3lock-color
 		cd /tmp/i3lock-color || return 1
-		./install-i3lock-color.sh || return 1
+		./install-i3lock-color.sh
 		cd "$SCRIPT_DIR" || return 1
-		rm -rf /tmp/i3lock-color || return 1
+		[ -d /tmp/i3lock-color ] && rm -rf /tmp/i3lock-color
 
 		log_success "Installed/Updated $package_name..."
 		;;
@@ -314,18 +314,20 @@ install_special_packages() {
 		install_packages support_pkgs -d || return 1
 
 		# Clean old build if present
-		rm -rf /tmp/betterlockscreen-main /tmp/betterlockscreen.zip
+		[ -d /tmp/betterlockscreen-main ] && rm -rf /tmp/betterlockscreen-main
+		[ -f /tmp/betterlockscreen.zip ] && rm -rf /tmp/betterlockscreen.zip
 
 		# Download and install latest
-		wget -O /tmp/betterlockscreen.zip https://github.com/betterlockscreen/betterlockscreen/archive/refs/heads/main.zip || return 1
-		unzip /tmp/betterlockscreen.zip -d /tmp || return 1
+		wget -O /tmp/betterlockscreen.zip https://github.com/betterlockscreen/betterlockscreen/archive/refs/heads/main.zip
+		unzip /tmp/betterlockscreen.zip -d /tmp
 		cd /tmp/betterlockscreen-main || return 1
-		chmod u+x betterlockscreen || return 1
-		sudo cp betterlockscreen /usr/local/bin/ || return 1
+		chmod u+x betterlockscreen
+		sudo cp betterlockscreen /usr/local/bin/
 
 		# Cleanup
 		cd "$SCRIPT_DIR" || return 1
-		rm -rf /tmp/betterlockscreen-main /tmp/betterlockscreen.zip || return 1
+		[ -d /tmp/betterlockscreen-main ] && rm -rf /tmp/betterlockscreen-main
+		[ -f /tmp/betterlockscreen.zip ] && rm -rf /tmp/betterlockscreen.zip
 
 		log_success "Installed/Updated $package_name..."
 		;;
@@ -388,6 +390,53 @@ install_special_packages() {
 
 		log_success "Installed/Updated $package_name..."
 		;;
+	neovim)
+		log_info "Installing $package_name"
+		# Check if already installed
+		if command -v nvim >/dev/null 2>&1; then
+			INSTALLED_VER=$(nvim -v | head -n1 | awk '{print $2}')
+			LATEST_VER=$(curl -s https://api.github.com/repos/neovim/neovim/releases/latest | grep '"tag_name":' | cut -d'"' -f4)
+
+			if [ "$INSTALLED_VER" = "$LATEST_VER" ]; then
+				log_info "$package_name is up-to-date (version $INSTALLED_VER)."
+				log_success "$package_name is ready."
+				return 0
+			else
+				log_info "Updating $package_name from $INSTALLED_VER → $LATEST_VER"
+			fi
+		fi
+
+		log_info "Installing Desps for $package_name"
+
+		case "$DISTRO" in
+		arch)
+			support_pkgs=(cmake ninja tree-sitter curl unzip gettext)
+			install_packages support_pkgs -d || return 1
+			;;
+		debian)
+			support_pkgs=(ninja-build gettext cmake unzip curl build-essential
+				pkg-config libtool libtool-bin autoconf automake g++ tree-sitter-cli)
+			install_packages support_pkgs -d || return 1
+			;;
+		esac
+
+		[ -d /tmp/neovim ] && rm -rf /tmp/neovim
+
+		# Clone source
+		git clone https://github.com/neovim/neovim /tmp/neovim
+		cd /tmp/neovim || return 1
+
+		# Build (release mode)
+		make CMAKE_BUILD_TYPE=Release
+
+		# Install system-wide
+		sudo make install
+
+		cd "$SCRIPT_DIR" || return 1
+		[ -d /tmp/neovim ] && rm -rf /tmp/neovim
+
+		log_success "Installed $package_name"
+		;;
 	rust)
 		log_info "Installing $package_name"
 
@@ -426,12 +475,28 @@ install_special_packages() {
 
 			# Download and install Node.js:
 			nvm install 22 || return 1
+
+			log_info "Sourced nvm environment and installed node."
 		fi
 
 		log_success "Installed $package_name..."
 		;;
 	fzf)
 		log_info "Installing $package_name..."
+
+		# Check if already installed
+		if command -v fzf >/dev/null 2>&1; then
+			INSTALLED_VER=$(fzf --version | awk '{print "v"$1}')
+			LATEST_VER=$(curl -s https://api.github.com/repos/junegunn/fzf/releases/latest | grep '"tag_name":' | cut -d'"' -f4)
+
+			if [ "$INSTALLED_VER" = "$LATEST_VER" ]; then
+				log_info "$package_name is up-to-date (version $INSTALLED_VER)."
+				log_success "$package_name is ready."
+				return 0
+			else
+				log_info "Updating $package_name from $INSTALLED_VER → $LATEST_VER"
+			fi
+		fi
 
 		if [[ -d "$HOME/.fzf" ]]; then
 			rm -rf "$HOME/.fzf"
@@ -443,15 +508,21 @@ install_special_packages() {
 		;;
 	miniconda)
 		log_info "Installing $package_name..."
+
+		# Check if already installed
+		if command -v conda >/dev/null 2>&1; then
+			log_success "$package_name is ready."
+			return 0
+		fi
+
 		wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh || return 1
 
-		if [[ -d "$HOME/miniconda3" ]]; then
-			rm -rf "$HOME/miniconda3"
-		fi
+		[ -d "$HOME/miniconda3" ] && rm -rf "$HOME/miniconda3"
 
 		chmod +x ./Miniconda3-latest-Linux-x86_64.sh || return 1
 		./Miniconda3-latest-Linux-x86_64.sh
-		rm -rf ./Miniconda3-latest-Linux-x86_64.sh
+
+		[ -f ./Miniconda3-latest-Linux-x86_64.sh ] && rm -rf ./Miniconda3-latest-Linux-x86_64.sh
 
 		log_success "Installed $package_name..."
 		;;
