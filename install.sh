@@ -67,6 +67,7 @@ declare -A I3_PACKAGES_DESC=(
 	[rofi]="Window switcher, run launcher, ssh-launcher and more"
 	[dunst]="Lightweight notification daemon"
 	[picom]="Standalone compositor for X11"
+	[i3lock_color]="Simple lockscreen session locker for i3wm with good themes"
 	[betterlockscreen]="Simple lockscreen session locker for i3wm (installed via script)"
 	[xrandr]="Interact with the X RandR extension to set screen size/position"
 	[autorandr]="Auto-detect and use saved XRandR profiles"
@@ -93,6 +94,7 @@ declare -A DEV_PACKAGES_DESC=(
 	[fzf]="Tool required for nvim easy fuzzy finding"
 	[miniconda]="A mini version of Conda for python"
 	[node]="Required for nvim and web dev"
+	[rust]="Required for nvim, alacritty install and system programming"
 )
 : "${DEV_PACKAGES_DESC[@]}"
 
@@ -141,8 +143,10 @@ declare -A SPECIAL_PACKAGES=(
 	[fzf]="fzf"
 	[miniconda]="miniconda"
 	[node]="node"
+	[rust]="rust"
 	[easyeffects]="easyeffects"
 	[thunar]="thunar"
+	[i3lock_color]="i3lockcolor"
 )
 
 # ────────────────────────────────────────────────
@@ -173,6 +177,31 @@ esac
 for key in "${!SPECIAL_PACKAGES[@]}"; do
 	ALL_PACKAGES["$key"]="${SPECIAL_PACKAGES[$key]}"
 done
+
+# ────────────────────────────────────────────────
+# Show Msg function (Accepts one arg msg)
+show_msg() {
+	local msg="$1"
+	cat <<EOF
+$msg
+EOF
+}
+
+# ────────────────────────────────────────────────
+# Yes No prompt function (Accepts one arg as prompt msg)
+ask_yes_no() {
+	local prompt="$1"
+	local reply
+
+	while true; do
+		read -r -p "$prompt [y/n]: " reply
+		case "$reply" in
+		[Yy] | [Yy][Ee][Ss]) return 0 ;; # true
+		[Nn] | [Nn][Oo]) return 1 ;;     # false
+		*) echo "Please answer y or n." ;;
+		esac
+	done
+}
 
 # ────────────────────────────────────────────────
 # Package checker (returns missing packages in stdout)
@@ -214,18 +243,29 @@ press_enter() {
 # Special package installations (not in official repos)
 install_special_packages() {
 	local package_name=$1
+
 	local support_pkgs=()
 	: "${support_pkgs[@]}"
+
 	case "$package_name" in
-	betterlockscreen)
+	i3lockcolor)
 		log_info "Installing $package_name..."
 
-		if [[ -d ./i3lock-color ]]; then
-			rm -rf ./i3lock-color
+		# Check if already installed
+		if command -v i3lock >/dev/null 2>&1; then
+			INSTALLED_VER=$(i3lock --version 2>&1 | awk '{print $3}')
+			LATEST_VER=$(curl -s https://api.github.com/repos/Raymo111/i3lock-color/releases/latest | grep '"tag_name":' | cut -d'"' -f4)
+
+			if [ "$INSTALLED_VER" = "$LATEST_VER" ]; then
+				log_info "$package_name is up-to-date (version $INSTALLED_VER)."
+				log_success "$package_name is ready."
+				return 0
+			else
+				log_info "Updating $package_name from $INSTALLED_VER → $LATEST_VER"
+			fi
 		fi
 
-		log_info "Installing Desps for $package_name"
-
+		log_info "Installing dependencies for $package_name..."
 		case "$DISTRO" in
 		arch)
 			support_pkgs=(autoconf cairo fontconfig gcc libev libjpeg-turbo libxinerama libxkbcommon-x11 libxrandr pam pkgconf
@@ -240,75 +280,154 @@ install_special_packages() {
 			;;
 		esac
 
-		git clone https://github.com/Raymo111/i3lock-color.git || return 1
-		cd i3lock-color || return 1
+		# Clean old build if present
+		[ -d /tmp/i3lock-color ] && rm -rf /tmp/i3lock-color
+
+		# Build from source
+		git clone https://github.com/Raymo111/i3lock-color.git /tmp/i3lock-color || return 1
+		cd /tmp/i3lock-color || return 1
 		./install-i3lock-color.sh || return 1
 		cd "$SCRIPT_DIR" || return 1
-		rm -rf ./i3lock-color || return 1
+		rm -rf /tmp/i3lock-color || return 1
 
-		if [[ -d ./betterlockscreen-main ]]; then
-			rm -rf ./betterlockscreen-main
+		log_success "Installed/Updated $package_name..."
+		;;
+	betterlockscreen)
+		log_info "Installing $package_name..."
+
+		# Check if already installed
+		if command -v betterlockscreen >/dev/null 2>&1; then
+			INSTALLED_VER=$(betterlockscreen --version 2>/dev/null | grep -m1 '^Betterlockscreen:' | awk '{print $3}')
+			LATEST_VER=$(curl -s https://api.github.com/repos/betterlockscreen/betterlockscreen/releases/latest | grep '"tag_name":' | cut -d'"' -f4)
+
+			if [ "$INSTALLED_VER" = "$LATEST_VER" ]; then
+				log_info "$package_name is up-to-date (version $INSTALLED_VER)."
+				log_success "$package_name is ready."
+				return 0
+			else
+				log_info "Updating $package_name from $INSTALLED_VER → $LATEST_VER"
+			fi
 		fi
 
-		wget https://github.com/betterlockscreen/betterlockscreen/archive/refs/heads/main.zip || return 1
-		unzip main.zip || return 1
-		cd betterlockscreen-main/ || return 1
+		log_info "Installing dependencies for $package_name..."
+		support_pkgs=(i3lockcolor)
+		install_packages support_pkgs -d || return 1
+
+		# Clean old build if present
+		rm -rf /tmp/betterlockscreen-main /tmp/betterlockscreen.zip
+
+		# Download and install latest
+		wget -O /tmp/betterlockscreen.zip https://github.com/betterlockscreen/betterlockscreen/archive/refs/heads/main.zip || return 1
+		unzip /tmp/betterlockscreen.zip -d /tmp || return 1
+		cd /tmp/betterlockscreen-main || return 1
 		chmod u+x betterlockscreen || return 1
 		sudo cp betterlockscreen /usr/local/bin/ || return 1
+
+		# Cleanup
 		cd "$SCRIPT_DIR" || return 1
-		rm -rf ./betterlockscreen-main || return 1
-		log_success "Installed $package_name..."
+		rm -rf /tmp/betterlockscreen-main /tmp/betterlockscreen.zip || return 1
+
+		log_success "Installed/Updated $package_name..."
 		;;
 	alacritty)
 		log_info "Installing $package_name..."
-		log_info "Installing Desps for $package_name"
 
-		[ -d "$HOME/.cargo" ] && rm -rf "$HOME/.cargo"
-		[ -d "$HOME/.rustup" ] && rm -rf "$HOME/.rustup"
+		# Check if already installed
+		if command -v alacritty >/dev/null 2>&1; then
+			INSTALLED_VER=$(alacritty --version 2>&1 | awk '{print "v"$2}')
+			LATEST_VER=$(curl -s https://api.github.com/repos/alacritty/alacritty/releases/latest | grep '"tag_name":' | cut -d'"' -f4)
+
+			if [ "$INSTALLED_VER" = "$LATEST_VER" ]; then
+				log_info "$package_name is up-to-date (version $INSTALLED_VER)."
+				log_success "$package_name is ready."
+				return 0
+			else
+				log_info "Updating $package_name from $INSTALLED_VER → $LATEST_VER"
+			fi
+		fi
+
+		log_info "Installing Desps for $package_name"
 
 		case "$DISTRO" in
 		arch)
-			support_pkgs=(cmake freetype2 fontconfig pkg-config make libxcb libxkbcommon python gzip scdoc)
+			support_pkgs=(cmake freetype2 fontconfig pkg-config make libxcb libxkbcommon python gzip scdoc rust)
 			install_packages support_pkgs -d || return 1
 			;;
 		debian)
-			support_pkgs=(cmake g++ pkg-config libfontconfig1-dev libxcb-xfixes0-dev libxkbcommon-dev python3 gzip scdoc)
+			support_pkgs=(cmake g++ pkg-config libfontconfig1-dev libxcb-xfixes0-dev libxkbcommon-dev python3 gzip scdoc rust)
 			install_packages support_pkgs -d || return 1
 			;;
 		esac
 
-		if [[ -d ./alacritty ]]; then
-			rm -rf ./alacritty
-		fi
+		[ -d /tmp/alacritty ] && rm -rf /tmp/alacritty
 
-		# Install Rust via rustup (per-user, no sudo)
-		if [ ! -d "$HOME/.cargo" ]; then
-			echo "Installing Rust with rustup..."
-			curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-		fi
+		git clone https://github.com/alacritty/alacritty.git /tmp/alacritty || return 1
+		cd /tmp/alacritty || return 1
 
-		# Source cargo env for immediate use in this script
-		if [ -f "$HOME/.cargo/env" ]; then
-			source "$HOME/.cargo/env"
-		fi
-
-		git clone https://github.com/alacritty/alacritty.git || return 1
-		cd alacritty || return 1
+		# Build release binary
 		cargo build --release || return 1
 
+		# Install binary
 		sudo cp target/release/alacritty /usr/local/bin || return 1
+
+		# Install icon + desktop entry
 		sudo cp extra/logo/alacritty-term.svg /usr/share/pixmaps/Alacritty.svg || return 1
 		sudo desktop-file-install extra/linux/Alacritty.desktop || return 1
 		sudo update-desktop-database || return 1
 
+		# Install man pages
 		sudo mkdir -p /usr/local/share/man/man{1,5} || return 1
 		scdoc <extra/man/alacritty.1.scd | gzip -c | sudo tee /usr/local/share/man/man1/alacritty.1.gz >/dev/null || return 1
 		scdoc <extra/man/alacritty-msg.1.scd | gzip -c | sudo tee /usr/local/share/man/man1/alacritty-msg.1.gz >/dev/null || return 1
 		scdoc <extra/man/alacritty.5.scd | gzip -c | sudo tee /usr/local/share/man/man5/alacritty.5.gz >/dev/null || return 1
 		scdoc <extra/man/alacritty-bindings.5.scd | gzip -c | sudo tee /usr/local/share/man/man5/alacritty-bindings.5.gz >/dev/null || return 1
 
+		# Cleanup
 		cd "$SCRIPT_DIR" || return 1
-		rm -rf ./alacritty || return 1
+		[ -d /tmp/alacritty ] && rm -rf /tmp/alacritty || return 1
+
+		log_success "Installed/Updated $package_name..."
+		;;
+	rust)
+		log_info "Installing $package_name"
+
+		if command -v cargo >/dev/null 2>&1; then
+			log_info "Rust is already installed (system or rustup)."
+		else
+			log_info "Rust not found, installing with rustup..."
+			curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y || return 1
+		fi
+
+		# If rustup install, source cargo env
+		if [ -f "$HOME/.cargo/env" ]; then
+			# shellcheck source=/dev/null
+			source "$HOME/.cargo/env"
+			log_info "Sourced rustup environment."
+		fi
+
+		log_success "Installed $package_name"
+		;;
+	node)
+		log_info "Installing $package_name..."
+
+		if command -v node >/dev/null 2>&1; then
+			log_info "Node is already installed..."
+		else
+			log_info "Node not found, installing with NVM"
+			curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash
+		fi
+
+		if [ -d "$HOME/.nvm" ]; then
+			# in lieu of restarting the shell
+			export NVM_DIR="$HOME/.nvm"
+
+			# shellcheck disable=SC1090
+			. "$NVM_DIR/nvm.sh" || return 1
+
+			# Download and install Node.js:
+			nvm install 22 || return 1
+		fi
+
 		log_success "Installed $package_name..."
 		;;
 	fzf)
@@ -333,28 +452,6 @@ install_special_packages() {
 		chmod +x ./Miniconda3-latest-Linux-x86_64.sh || return 1
 		./Miniconda3-latest-Linux-x86_64.sh
 		rm -rf ./Miniconda3-latest-Linux-x86_64.sh
-
-		log_success "Installed $package_name..."
-		;;
-	node)
-		log_info "Installing $package_name..."
-
-		# Step 1: Remove old nvm installation if exists
-		if [ -d "$HOME/.nvm" ]; then
-			rm -rf "$HOME/.nvm"
-		fi
-
-		# Download and install nvm:
-		curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash
-
-		# in lieu of restarting the shell
-		export NVM_DIR="$HOME/.nvm"
-
-		# shellcheck disable=SC1090
-		. "$NVM_DIR/nvm.sh" || return 1
-
-		# Download and install Node.js:
-		nvm install 22 || return 1
 
 		log_success "Installed $package_name..."
 		;;
@@ -400,6 +497,22 @@ install_special_packages() {
 		;;
 	coolercontrol)
 		log_info "Installing $package_name..."
+
+		# Check if already installed
+		if command -v coolercontrold >/dev/null 2>&1; then
+			INSTALLED_VER=$(coolercontrold --version 2>&1 | grep -oP 'CoolerControlD \K[0-9.]+')
+			LATEST_VER=$(curl -s "https://gitlab.com/api/v4/projects/coolercontrol%2Fcoolercontrol/releases" |
+				grep -oP '"tag_name":"\K[^"]+' | head -n1)
+
+			if [ "$INSTALLED_VER" = "$LATEST_VER" ]; then
+				log_info "$package_name is up-to-date (version $INSTALLED_VER)."
+				log_success "$package_name is ready."
+				return 0
+			else
+				log_info "Updating $package_name from $INSTALLED_VER → $LATEST_VER"
+			fi
+		fi
+
 		log_info "Installing Desps for $package_name"
 		case "$DISTRO" in
 		arch)
@@ -413,6 +526,7 @@ install_special_packages() {
 			install_packages support_pkgs -d || return 1
 			;;
 		esac
+
 		# Clone the repo
 		git clone https://gitlab.com/coolercontrol/coolercontrol.git /tmp/coolercontrol
 		cd /tmp/coolercontrol || exit 1
@@ -431,7 +545,15 @@ install_special_packages() {
 		# Clean up
 		cd "$SCRIPT_DIR" || return 1
 		rm -rf /tmp/coolercontrol
+
 		log_success "Installed $package_name..."
+
+		show_msg "lm-sensors and coolercontrol is installed
+but in case if you don't see any sensors or
+system stats in the cooler control UI then
+simply just run sudo lm-sensors or for one
+time just turn of the secure boot and then
+do sudo lm-sensors."
 		;;
 	esac
 	return 0
