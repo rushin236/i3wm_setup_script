@@ -819,12 +819,10 @@ install_i3wm_setup() {
 		1)
 			install_from_array I3_PACKAGES_DESC "all"
 			msg=""
-			continue
 			;;
 		2)
 			install_from_array I3_PACKAGES_DESC "select"
 			msg=""
-			continue
 			;;
 		3) return ;;
 		*)
@@ -852,12 +850,10 @@ install_dev_tools() {
 		1)
 			install_from_array DEV_PACKAGES_DESC "all"
 			msg=""
-			continue
 			;;
 		2)
 			install_from_array DEV_PACKAGES_DESC "select"
 			msg=""
-			continue
 			;;
 		3) return ;;
 		*)
