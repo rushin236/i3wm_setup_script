@@ -82,7 +82,6 @@ declare -A I3_PACKAGES_DESC=(
 	[xidlehook]="Automatic screen locking daemon after a period of inactivity"
 	[easyeffects]="Advanced audio effects and equalizer for PipeWire or PulseAudio"
 	[thunar]="A good lightweight file explorer"
-	[playerctl]="A command-line controller for media players via MPRIS D-Bus interface"
 )
 : "${I3_PACKAGES_DESC[@]}"
 
@@ -117,7 +116,6 @@ declare -A COMMON_PACKAGES=(
 	[dex]="dex"
 	[networkmanager]="networkmanager"
 	[network_manager_applet]="network-manager-applet"
-	[playerctl]="playerctl"
 )
 
 # Arch-specific package names
