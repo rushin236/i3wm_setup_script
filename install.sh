@@ -239,6 +239,14 @@ press_enter() {
 	read -rp "Press Enter to continue"
 }
 
+print_line() {
+	case "$1" in
+	-s) echo "-------- Start ---------" ;;
+	-e) echo "--------- End ----------" ;;
+	*) echo "Usage: print_line -s|-e" ;;
+	esac
+}
+
 # ────────────────────────────────────────────────
 # Special package installations (not in official repos)
 install_special_packages() {
@@ -708,6 +716,8 @@ install_packages() {
 
 	local exit_code=0
 
+	print_line -s
+
 	# Install regular packages first
 	if [ ${#regular_packages[@]} -gt 0 ]; then
 		log_info "Installing regular packages: ${regular_packages[*]}"
@@ -730,8 +740,11 @@ install_packages() {
 			;;
 		esac
 	else
-		echo "Got no regular packages to install"
+		log_info "Got no regular packages to install"
 	fi
+
+	print_line -e
+	print_line -s
 
 	# Install special packages one by one
 	if [ ${#special_packages[@]} -gt 0 ]; then
@@ -744,9 +757,10 @@ install_packages() {
 			fi
 		done
 	else
-		echo "Got no special packages to install"
+		log_info "Got no special packages to install"
 	fi
 
+	print_line -e
 	return "$exit_code"
 }
 
