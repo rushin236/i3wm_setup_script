@@ -80,8 +80,8 @@ declare -A I3_PACKAGES_DESC=(
 	[networkmanager]="Daemon for managing network connections (wired and wireless)"
 	[network_manager_applet]="System tray applet for NetworkManager to manage connections via GUI"
 	[xidlehook]="Automatic screen locking daemon after a period of inactivity"
-	[easyeffects]="Advanced audio effects and equalizer for PipeWire or PulseAudio"
-	[thunar]="A good lightweight file explorer"
+	[easyeffects_fx]="Advanced audio effects and equalizer for PipeWire or PulseAudio"
+	[thunar_fe]="A good lightweight file explorer"
 )
 : "${I3_PACKAGES_DESC[@]}"
 
@@ -143,8 +143,8 @@ declare -A SPECIAL_PACKAGES=(
 	[miniconda]="miniconda"
 	[node]="node"
 	[rust]="rust"
-	[easyeffects]="easyeffects"
-	[thunar]="thunarfx"
+	[easyeffects_fx]="easyeffects_fx"
+	[thunar_fe]="thunar_fe"
 	[i3lock_color]="i3lockcolor"
 	[xidlehook]="xidlehook"
 )
@@ -578,7 +578,7 @@ install_special_packages() {
 
 		log_success "Installed $package_name..."
 		;;
-	easyeffects)
+	easyeffects_fx)
 		log_info "Installing $package_name..."
 		log_info "Installing Desps for $package_name"
 
@@ -597,7 +597,7 @@ install_special_packages() {
 
 		log_success "Installed $package_name..."
 		;;
-	thunarfx)
+	thunar_fe)
 		log_info "Installing $package_name..."
 		log_info "Installing Desps for $package_name"
 
