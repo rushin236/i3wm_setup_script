@@ -79,9 +79,10 @@ declare -A I3_PACKAGES_DESC=(
 	[dex]="Desktop entry executor for autostarting .desktop files in lightweight environments"
 	[networkmanager]="Daemon for managing network connections (wired and wireless)"
 	[network_manager_applet]="System tray applet for NetworkManager to manage connections via GUI"
-	[xautolock]="Automatic screen locking daemon after a period of inactivity"
+	[xidlehook]="Automatic screen locking daemon after a period of inactivity"
 	[easyeffects]="Advanced audio effects and equalizer for PipeWire or PulseAudio"
 	[thunar]="A good lightweight file explorer"
+	[playerctl]="A command-line controller for media players via MPRIS D-Bus interface"
 )
 : "${I3_PACKAGES_DESC[@]}"
 
@@ -116,7 +117,7 @@ declare -A COMMON_PACKAGES=(
 	[dex]="dex"
 	[networkmanager]="networkmanager"
 	[network_manager_applet]="network-manager-applet"
-	[xautolock]="xautolock"
+	[playerctl]="playerctl"
 )
 
 # Arch-specific package names
@@ -145,8 +146,9 @@ declare -A SPECIAL_PACKAGES=(
 	[node]="node"
 	[rust]="rust"
 	[easyeffects]="easyeffects"
-	[thunar]="thunar"
+	[thunar]="thunarfx"
 	[i3lock_color]="i3lockcolor"
+	[xidlehook]="xidlehook"
 )
 
 # ────────────────────────────────────────────────
@@ -243,11 +245,54 @@ press_enter() {
 # Special package installations (not in official repos)
 install_special_packages() {
 	local package_name=$1
-
 	local support_pkgs=()
 	: "${support_pkgs[@]}"
 
 	case "$package_name" in
+	xidlehook)
+		log_info "Installing $package_name..."
+		# Check if already installed
+		if command -v xidlehook >/dev/null 2>&1; then
+			INSTALLED_VER=$(xidlehook --version 2>&1 | awk '{print $2}')
+			LATEST_VER=$(curl -s https://api.github.com/repos/jD91mZM2/xidlehook/tags | grep '"name":' | head -n 1 | cut -d'"' -f4)
+
+			if [ "$INSTALLED_VER" = "$LATEST_VER" ]; then
+				log_info "$package_name is up-to-date (version $INSTALLED_VER)."
+				log_success "$package_name is ready."
+				return 0
+			else
+				log_info "Updating $package_name from $INSTALLED_VER → $LATEST_VER"
+			fi
+		fi
+
+		log_info "Installing dependencies for $package_name..."
+
+		case "$DISTRO" in
+		arch)
+			support_pkgs=(rust libxcb libxrandr libxss libx11 dbus)
+			install_packages support_pkgs -d || return 1
+			;;
+		debian)
+			support_pkgs=(rust libxcb1-dev libxcb-randr0-dev libxcb-dpms0-dev libxcb-screensaver0-dev libdbus-1-dev)
+			install_packages support_pkgs -d || return 1
+			;;
+		esac
+
+		# Clean old build if present
+		[ -d /tmp/xidlehook ] && rm -rf /tmp/xidlehook
+
+		# Build from source
+		git clone https://github.com/jD91mZM2/xidlehook.git /tmp/xidlehook
+		cd /tmp/xidlehook || return 1
+		cargo build --release || return 1
+		sudo install -Dm755 target/release/xidlehook /usr/local/bin/xidlehook
+
+		# Cleanup
+		cd "$SCRIPT_DIR" || return 1
+		[ -d /tmp/xidlehook ] && rm -rf /tmp/xidlehook
+
+		log_success "Installed/Updated $package_name..."
+		;;
 	i3lockcolor)
 		log_info "Installing $package_name..."
 
@@ -266,6 +311,7 @@ install_special_packages() {
 		fi
 
 		log_info "Installing dependencies for $package_name..."
+
 		case "$DISTRO" in
 		arch)
 			support_pkgs=(autoconf cairo fontconfig gcc libev libjpeg-turbo libxinerama libxkbcommon-x11 libxrandr pam pkgconf
@@ -282,14 +328,12 @@ install_special_packages() {
 
 		# Clean old build if present
 		[ -d /tmp/i3lock-color ] && rm -rf /tmp/i3lock-color
-
 		# Build from source
 		git clone https://github.com/Raymo111/i3lock-color.git /tmp/i3lock-color
 		cd /tmp/i3lock-color || return 1
 		./install-i3lock-color.sh
 		cd "$SCRIPT_DIR" || return 1
 		[ -d /tmp/i3lock-color ] && rm -rf /tmp/i3lock-color
-
 		log_success "Installed/Updated $package_name..."
 		;;
 	betterlockscreen)
@@ -361,8 +405,10 @@ install_special_packages() {
 			;;
 		esac
 
+		# Clean old build if present
 		[ -d /tmp/alacritty ] && rm -rf /tmp/alacritty
 
+		# Download and install latest
 		git clone https://github.com/alacritty/alacritty.git /tmp/alacritty || return 1
 		cd /tmp/alacritty || return 1
 
@@ -392,6 +438,7 @@ install_special_packages() {
 		;;
 	neovim)
 		log_info "Installing $package_name"
+
 		# Check if already installed
 		if command -v nvim >/dev/null 2>&1; then
 			INSTALLED_VER=$(nvim -v | head -n1 | awk '{print $2}')
@@ -420,6 +467,7 @@ install_special_packages() {
 			;;
 		esac
 
+		# Clean old build if present
 		[ -d /tmp/neovim ] && rm -rf /tmp/neovim
 
 		# Clone source
@@ -432,6 +480,7 @@ install_special_packages() {
 		# Install system-wide
 		sudo make install
 
+		# Cleanup
 		cd "$SCRIPT_DIR" || return 1
 		[ -d /tmp/neovim ] && rm -rf /tmp/neovim
 
@@ -452,6 +501,7 @@ install_special_packages() {
 			# shellcheck source=/dev/null
 			source "$HOME/.cargo/env"
 			log_info "Sourced rustup environment."
+			retrun 0
 		fi
 
 		log_success "Installed $package_name"
@@ -498,12 +548,12 @@ install_special_packages() {
 			fi
 		fi
 
-		if [[ -d "$HOME/.fzf" ]]; then
-			rm -rf "$HOME/.fzf"
-		fi
+		[ -d "$HOME/.fzf" ] && rm -rf "$HOME/.fzf"
 
+		# Download and install latest
 		git clone --depth 1 https://github.com/junegunn/fzf.git ~/.fzf || return 1
-		~/.fzf/install || return 1
+		~/.fzf/install
+
 		log_success "Installed $package_name..."
 		;;
 	miniconda)
@@ -515,13 +565,17 @@ install_special_packages() {
 			return 0
 		fi
 
+		# Download latest
 		wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh || return 1
 
+		# Clean old if present
 		[ -d "$HOME/miniconda3" ] && rm -rf "$HOME/miniconda3"
 
-		chmod +x ./Miniconda3-latest-Linux-x86_64.sh || return 1
+		# Install
+		chmod +x ./Miniconda3-latest-Linux-x86_64.sh
 		./Miniconda3-latest-Linux-x86_64.sh
 
+		# Cleanup
 		[ -f ./Miniconda3-latest-Linux-x86_64.sh ] && rm -rf ./Miniconda3-latest-Linux-x86_64.sh
 
 		log_success "Installed $package_name..."
@@ -532,7 +586,7 @@ install_special_packages() {
 
 		case "$DISTRO" in
 		arch)
-			# Core dependencies + plugins (AUR)
+			# Core dependencies
 			support_pkgs=(easyeffects calf lsp-plugins-lv2 zam-plugins-lv2 mda.lv2)
 			install_packages support_pkgs -d || return 1
 			;;
@@ -545,13 +599,13 @@ install_special_packages() {
 
 		log_success "Installed $package_name..."
 		;;
-	thunar)
+	thunarfx)
 		log_info "Installing $package_name..."
 		log_info "Installing Desps for $package_name"
 
 		case "$DISTRO" in
 		arch)
-			# Core dependencies + plugins (AUR)
+			# Core dependencies
 			support_pkgs=(thunar thunar-volman gvfs gvfs-mtp gvfs-smb gvfs-afc gvfs-goa exo
 				tumbler libmtp fuse2 xdg-user-dirs)
 			install_packages support_pkgs -d || return 1
