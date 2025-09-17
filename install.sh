@@ -270,28 +270,31 @@ install_packages() {
 		fi
 	done
 
-	echo "Regular pkgs: ${regular_packages[*]}"
+	local missing_pkgs
+
+	missing_pkgs=$(check_packages "${regular_packages[@]}")
+	echo "Regular pkgs: ${missing_pkgs[*]}"
 	echo "Special pkgs: ${special_packages[*]}"
 
 	local exit_code=0
 
 	# Install regular packages first
-	if [ ${#regular_packages[@]} -gt 0 ]; then
-		log_info "Installing regular packages: ${regular_packages[*]}"
+	if [ ${#missing_pkgs[@]} -gt 0 ]; then
+		log_info "Installing regular packages: ${missing_pkgs[*]}"
 		case "$DISTRO" in
 		arch)
-			if sudo pacman -Sy --noconfirm "${regular_packages[@]}"; then
-				log_success "Installed: ${regular_packages[*]}"
+			if sudo pacman -Sy --noconfirm "${missing_pkgs[@]}"; then
+				log_success "Installed: ${missing_pkgs[*]}"
 			else
-				log_error "Failed to install: ${regular_packages[*]}"
+				log_error "Failed to install: ${missing_pkgs[*]}"
 				exit_code=1
 			fi
 			;;
 		debian)
-			if sudo apt-get update && sudo apt-get install -y "${regular_packages[@]}"; then
-				log_success "Installed: ${regular_packages[*]}"
+			if sudo apt-get update && sudo apt-get install -y "${missing_pkgs[@]}"; then
+				log_success "Installed: ${missing_pkgs[*]}"
 			else
-				log_error "Failed to install: ${regular_packages[*]}"
+				log_error "Failed to install: ${missing_pkgs[*]}"
 				exit_code=1
 			fi
 			;;
