@@ -272,7 +272,9 @@ install_packages() {
 
 	local missing_pkgs=()
 
-	read -ra missing_pkgs <<<"$(check_packages "${regular_packages[@]}")"
+	if [ ${#regular_packages[@]} -gt 0 ]; then
+		read -ra missing_pkgs <<<"$(check_packages "${regular_packages[@]}")"
+	fi
 	echo "Regular pkgs: ${missing_pkgs[*]}"
 	echo "Special pkgs: ${special_packages[*]}"
 
