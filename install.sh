@@ -114,7 +114,7 @@ declare -A COMMON_PACKAGES=(
 	[zsh]="zsh"
 	[feh]="feh"
 	[dex]="dex"
-	[networkmanager]="networkmanager"
+	[policykit]="lxpolkit"
 	[network_manager_applet]="network-manager-applet"
 )
 
@@ -123,7 +123,7 @@ declare -A ARCH_PACKAGES=(
 	[dispwin]="argyllcms"
 	[libnotify]="libnotify"
 	[xrandr]="xorg-xrandr"
-	[policykit]="polkit-gnome"
+	[networkmanager]="networkmanager"
 )
 
 # Debian-specific package names
@@ -131,7 +131,7 @@ declare -A DEBIAN_PACKAGES=(
 	[dispwin]="argyll"
 	[libnotify]="libnotify-bin"
 	[xrandr]="x11-xserver-utils"
-	[policykit]="policykit-1-gnome"
+	[networkmanager]="network-manager"
 )
 
 # Always included, handled specially
@@ -731,8 +731,8 @@ install_special_packages() {
 			;;
 		debian)
 			# Core dependencies
-			support_pkgs=(thunar thunar-volman gvfs gvfs-backends gvfs-fuse gvfs-mtp gvfs-smb
-				gvfs-afc gvfs-goa exo-utils tumbler libmtp9 fuse xdg-user-dirs)
+			support_pkgs=(thunar thunar-volman gvfs gvfs-backends gvfs-fuse exo-utils tumbler
+				libmtp9 fuse xdg-user-dirs mtp-tools)
 			install_packages support_pkgs -d || return 1
 			;;
 		esac
