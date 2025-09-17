@@ -114,7 +114,7 @@ declare -A COMMON_PACKAGES=(
 	[zsh]="zsh"
 	[feh]="feh"
 	[dex]="dex"
-	[policykit]="lxpolkit"
+	[policykit]="lxqt-policykit"
 	[network_manager_applet]="network-manager-applet"
 )
 
