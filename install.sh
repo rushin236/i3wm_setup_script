@@ -270,9 +270,10 @@ install_packages() {
 		fi
 	done
 
-	local missing_pkgs
+	local missing_pkgs=()
 
-	missing_pkgs=$(check_packages "${regular_packages[@]}")
+	missing_pkgs_str=$(check_packages "${regular_packages[@]}")
+	IFS=' ' read -ra missing_pkgs <<<"$missing_pkgs_str"
 	echo "Regular pkgs: ${missing_pkgs[*]}"
 	echo "Special pkgs: ${special_packages[*]}"
 
