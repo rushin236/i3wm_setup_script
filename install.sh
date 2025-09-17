@@ -248,6 +248,80 @@ print_line() {
 }
 
 # ────────────────────────────────────────────────
+# Package installations (official non official)
+install_packages() {
+	local -n arr=$1
+	local mode=$2
+	local array_name=$1
+
+	# Separate regular and special packages
+	local regular_packages=()
+	local special_packages=()
+
+	for pkg in "${arr[@]}"; do
+		if [[ -n "${SPECIAL_PACKAGES[$pkg]}" ]]; then
+			special_packages+=("${SPECIAL_PACKAGES[$pkg]}")
+		else
+			if [ "$mode" = "-n" ]; then
+				regular_packages+=("${ALL_PACKAGES[$pkg]}")
+			elif [ "$mode" = "-d" ]; then
+				regular_packages+=("$pkg")
+			fi
+		fi
+	done
+
+	echo "Regular pkgs: ${regular_packages[*]}"
+	echo "Special pkgs: ${special_packages[*]}"
+
+	local exit_code=0
+
+	print_line -s
+
+	# Install regular packages first
+	if [ ${#regular_packages[@]} -gt 0 ]; then
+		log_info "Installing regular packages: ${regular_packages[*]}"
+		case "$DISTRO" in
+		arch)
+			if sudo pacman -Sy --noconfirm "${regular_packages[@]}"; then
+				log_success "Installed: ${regular_packages[*]}"
+			else
+				log_error "Failed to install: ${regular_packages[*]}"
+				exit_code=1
+			fi
+			;;
+		debian)
+			if sudo apt-get update && sudo apt-get install -y "${regular_packages[@]}"; then
+				log_success "Installed: ${regular_packages[*]}"
+			else
+				log_error "Failed to install: ${regular_packages[*]}"
+				exit_code=1
+			fi
+			;;
+		esac
+	else
+		log_info "Got no regular packages to install"
+	fi
+
+	# Install special packages one by one
+	if [ ${#special_packages[@]} -gt 0 ]; then
+		log_info "Installing special packages: ${special_packages[*]}"
+
+		for pkg in "${special_packages[@]}"; do
+			if ! install_special_packages "$pkg"; then
+				exit_code=1
+				break
+			fi
+		done
+	else
+		log_info "Got no special packages to install"
+	fi
+
+	print_line -e
+
+	return "$exit_code"
+}
+
+# ────────────────────────────────────────────────
 # Special package installations (not in official repos)
 install_special_packages() {
 	local package_name=$1
@@ -259,7 +333,11 @@ install_special_packages() {
 		log_info "Installing $package_name..."
 		# Check if already installed
 		if command -v xidlehook >/dev/null 2>&1; then
-			INSTALLED_VER=$(xidlehook --version 2>&1 | awk '{print $2}')
+			if [ -f "$SCRIPT_DIR/.version_$package_name" ]; then
+				INSTALLED_VER=$(cat "$SCRIPT_DIR/.version_$package_name")
+			else
+				INSTALLED_VER=$(betterlockscreen --version 2>/dev/null | grep -m1 '^Betterlockscreen:' | awk '{print $3}')
+			fi
 			LATEST_VER=$(curl -s https://api.github.com/repos/jD91mZM2/xidlehook/tags | grep '"name":' | head -n 1 | cut -d'"' -f4)
 
 			if [ "$INSTALLED_VER" = "$LATEST_VER" ]; then
@@ -297,6 +375,7 @@ install_special_packages() {
 		cd "$SCRIPT_DIR" || return 1
 		[ -d /tmp/xidlehook ] && rm -rf /tmp/xidlehook
 
+		echo "$LATEST_VER" >"$SCRIPT_DIR/.version_$package_name"
 		log_success "Installed/Updated $package_name..."
 		;;
 	i3lockcolor)
@@ -304,7 +383,11 @@ install_special_packages() {
 
 		# Check if already installed
 		if command -v i3lock >/dev/null 2>&1; then
-			INSTALLED_VER=$(i3lock --version 2>&1 | awk '{print $3}')
+			if [ -f "$SCRIPT_DIR/.version_$package_name" ]; then
+				INSTALLED_VER=$(cat "$SCRIPT_DIR/.version_$package_name")
+			else
+				INSTALLED_VER=$(betterlockscreen --version 2>/dev/null | grep -m1 '^Betterlockscreen:' | awk '{print $3}')
+			fi
 			LATEST_VER=$(curl -s https://api.github.com/repos/Raymo111/i3lock-color/releases/latest | grep '"tag_name":' | cut -d'"' -f4)
 
 			if [ "$INSTALLED_VER" = "$LATEST_VER" ]; then
@@ -340,6 +423,8 @@ install_special_packages() {
 		./install-i3lock-color.sh
 		cd "$SCRIPT_DIR" || return 1
 		[ -d /tmp/i3lock-color ] && rm -rf /tmp/i3lock-color
+
+		echo "$LATEST_VER" >"$SCRIPT_DIR/.version_$package_name"
 		log_success "Installed/Updated $package_name..."
 		;;
 	betterlockscreen)
@@ -347,7 +432,11 @@ install_special_packages() {
 
 		# Check if already installed
 		if command -v betterlockscreen >/dev/null 2>&1; then
-			INSTALLED_VER=$(betterlockscreen --version 2>/dev/null | grep -m1 '^Betterlockscreen:' | awk '{print $3}')
+			if [ -f "$SCRIPT_DIR/.version_$package_name" ]; then
+				INSTALLED_VER=$(cat "$SCRIPT_DIR/.version_$package_name")
+			else
+				INSTALLED_VER=$(betterlockscreen --version 2>/dev/null | grep -m1 '^Betterlockscreen:' | awk '{print $3}')
+			fi
 			LATEST_VER=$(curl -s https://api.github.com/repos/betterlockscreen/betterlockscreen/releases/latest | grep '"tag_name":' | cut -d'"' -f4)
 
 			if [ "$INSTALLED_VER" = "$LATEST_VER" ]; then
@@ -379,6 +468,7 @@ install_special_packages() {
 		[ -d /tmp/betterlockscreen-main ] && rm -rf /tmp/betterlockscreen-main
 		[ -f /tmp/betterlockscreen.zip ] && rm -rf /tmp/betterlockscreen.zip
 
+		echo "$LATEST_VER" >"$SCRIPT_DIR/.version_$package_name"
 		log_success "Installed/Updated $package_name..."
 		;;
 	alacritty)
@@ -690,80 +780,6 @@ do sudo lm-sensors."
 	return 0
 }
 
-install_packages() {
-	local -n arr=$1
-	local mode=$2
-	local array_name=$1
-
-	# Separate regular and special packages
-	local regular_packages=()
-	local special_packages=()
-
-	for pkg in "${arr[@]}"; do
-		if [[ -n "${SPECIAL_PACKAGES[$pkg]}" ]]; then
-			special_packages+=("${SPECIAL_PACKAGES[$pkg]}")
-		else
-			if [ "$mode" = "-n" ]; then
-				regular_packages+=("${ALL_PACKAGES[$pkg]}")
-			elif [ "$mode" = "-d" ]; then
-				regular_packages+=("$pkg")
-			fi
-		fi
-	done
-
-	echo "Regular pkgs: ${regular_packages[*]}"
-	echo "Special pkgs: ${special_packages[*]}"
-
-	local exit_code=0
-
-	print_line -s
-
-	# Install regular packages first
-	if [ ${#regular_packages[@]} -gt 0 ]; then
-		log_info "Installing regular packages: ${regular_packages[*]}"
-		case "$DISTRO" in
-		arch)
-			if sudo pacman -Sy --noconfirm "${regular_packages[@]}"; then
-				log_success "Installed: ${regular_packages[*]}"
-			else
-				log_error "Failed to install: ${regular_packages[*]}"
-				exit_code=1
-			fi
-			;;
-		debian)
-			if sudo apt-get update && sudo apt-get install -y "${regular_packages[@]}"; then
-				log_success "Installed: ${regular_packages[*]}"
-			else
-				log_error "Failed to install: ${regular_packages[*]}"
-				exit_code=1
-			fi
-			;;
-		esac
-	else
-		log_info "Got no regular packages to install"
-	fi
-
-	print_line -e
-	print_line -s
-
-	# Install special packages one by one
-	if [ ${#special_packages[@]} -gt 0 ]; then
-		log_info "Installing special packages: ${special_packages[*]}"
-
-		for pkg in "${special_packages[@]}"; do
-			if ! install_special_packages "$pkg"; then
-				exit_code=1
-				break
-			fi
-		done
-	else
-		log_info "Got no special packages to install"
-	fi
-
-	print_line -e
-	return "$exit_code"
-}
-
 install_from_array() {
 	local -n arr=$1 # create a nameref to the array
 	local mode=$2
@@ -929,6 +945,11 @@ install_dev_tools() {
 	done
 }
 
+setup_i3wm_dev_config() {
+	print_line -s
+	print_line -e
+}
+
 main_menu() {
 	local msg=""
 	local choice=""
@@ -938,7 +959,8 @@ main_menu() {
 		echo "=== Setup Menu (Distro: $DISTRO | Arch: $MACHINE) ==="
 		echo "1) Install i3wm setup"
 		echo "2) Install dev tools"
-		echo "3) Exit"
+		echo "3) Setup i3wm and dev tools config"
+		echo "4) Exit"
 		echo "$msg"
 		echo "====================================================="
 		read -rp "Choose an option: " choice
@@ -953,6 +975,10 @@ main_menu() {
 			msg=""
 			;;
 		3)
+			setup_i3wm_dev_config
+			msg=""
+			;;
+		4)
 			echo "Bye!"
 			exit 0
 			;;
