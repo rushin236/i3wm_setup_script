@@ -236,7 +236,7 @@ check_packages() {
 }
 
 press_enter() {
-	read -rp "Press Enter to continue"
+	read -rp "Press Enter to continue" </dev/tty >/dev/tty
 }
 
 print_line() {
@@ -831,7 +831,7 @@ install_from_array() {
 
 			echo
 			echo "$msg"
-			read -rp "Enter your choice: " choice
+			read -rp "Enter your choice: " choice </dev/tty >/dev/tty
 
 			# Check if input is a valid number
 			if ! [[ "$choice" =~ ^[0-9]+$ ]]; then
@@ -895,7 +895,7 @@ install_i3wm_setup() {
 		echo "3) Back to main menu"
 		echo "$msg"
 		echo "=============================="
-		read -rp "Choose an option: " choice
+		read -rp "Choose an option: " choice </dev/tty >/dev/tty
 
 		case "$choice" in
 		1)
@@ -926,7 +926,7 @@ install_dev_tools() {
 		echo "3) Back to main menu"
 		echo "$msg"
 		echo "=============================="
-		read -rp "Choose an option: " choice
+		read -rp "Choose an option: " choice </dev/tty >/dev/tty
 
 		case "$choice" in
 		1)
@@ -963,7 +963,7 @@ main_menu() {
 		echo "4) Exit"
 		echo "$msg"
 		echo "====================================================="
-		read -rp "Choose an option: " choice
+		read -rp "Choose an option: " choice </dev/tty >/dev/tty
 
 		case "$choice" in
 		1)
