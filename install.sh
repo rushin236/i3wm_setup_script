@@ -275,8 +275,6 @@ install_packages() {
 
 	local exit_code=0
 
-	print_line -s
-
 	# Install regular packages first
 	if [ ${#regular_packages[@]} -gt 0 ]; then
 		log_info "Installing regular packages: ${regular_packages[*]}"
@@ -316,8 +314,6 @@ install_packages() {
 		log_info "Got no special packages to install"
 	fi
 
-	print_line -e
-
 	return "$exit_code"
 }
 
@@ -331,255 +327,278 @@ install_special_packages() {
 	case "$package_name" in
 	xidlehook)
 		log_info "Installing $package_name..."
-		# Check if already installed
-		if command -v xidlehook >/dev/null 2>&1; then
-			if [ -f "$SCRIPT_DIR/.version_$package_name" ]; then
-				INSTALLED_VER=$(cat "$SCRIPT_DIR/.version_$package_name")
-			else
-				INSTALLED_VER=$(betterlockscreen --version 2>/dev/null | grep -m1 '^Betterlockscreen:' | awk '{print $3}')
+		(
+			local INSTALLED_VER
+			local LATEST_VER
+
+			# Check if already installed
+			if command -v xidlehook >/dev/null 2>&1; then
+				if [ -f "$SCRIPT_DIR/.version_$package_name" ]; then
+					INSTALLED_VER=$(cat "$SCRIPT_DIR/.version_$package_name")
+				else
+					INSTALLED_VER=$(xidlehook --version | awk '{print $2}')
+				fi
+				LATEST_VER=$(curl -s https://api.github.com/repos/jD91mZM2/xidlehook/tags | grep '"name":' | head -n 1 | cut -d'"' -f4)
+
+				if [ "$INSTALLED_VER" = "$LATEST_VER" ]; then
+					log_info "$package_name is up-to-date (version $INSTALLED_VER)."
+					log_success "$package_name is ready."
+					return 0
+				else
+					log_info "Updating $package_name from $INSTALLED_VER → $LATEST_VER"
+				fi
 			fi
-			LATEST_VER=$(curl -s https://api.github.com/repos/jD91mZM2/xidlehook/tags | grep '"name":' | head -n 1 | cut -d'"' -f4)
 
-			if [ "$INSTALLED_VER" = "$LATEST_VER" ]; then
-				log_info "$package_name is up-to-date (version $INSTALLED_VER)."
-				log_success "$package_name is ready."
-				return 0
-			else
-				log_info "Updating $package_name from $INSTALLED_VER → $LATEST_VER"
-			fi
-		fi
+			log_info "Installing dependencies for $package_name..."
 
-		log_info "Installing dependencies for $package_name..."
+			case "$DISTRO" in
+			arch)
+				support_pkgs=(rust libxcb libxrandr libxss libx11 dbus)
+				install_packages support_pkgs -d || return 1
+				;;
+			debian)
+				support_pkgs=(rust libxcb1-dev libxcb-randr0-dev libxcb-dpms0-dev libxcb-screensaver0-dev libdbus-1-dev)
+				install_packages support_pkgs -d || return 1
+				;;
+			esac
 
-		case "$DISTRO" in
-		arch)
-			support_pkgs=(rust libxcb libxrandr libxss libx11 dbus)
-			install_packages support_pkgs -d || return 1
-			;;
-		debian)
-			support_pkgs=(rust libxcb1-dev libxcb-randr0-dev libxcb-dpms0-dev libxcb-screensaver0-dev libdbus-1-dev)
-			install_packages support_pkgs -d || return 1
-			;;
-		esac
+			# Clean old build if present
+			[ -d /tmp/xidlehook ] && rm -rf /tmp/xidlehook
 
-		# Clean old build if present
-		[ -d /tmp/xidlehook ] && rm -rf /tmp/xidlehook
+			# Build from source
+			git clone https://github.com/jD91mZM2/xidlehook.git /tmp/xidlehook
+			cd /tmp/xidlehook || return 1
+			cargo build --release || return 1
+			sudo install -Dm755 target/release/xidlehook /usr/local/bin/xidlehook
 
-		# Build from source
-		git clone https://github.com/jD91mZM2/xidlehook.git /tmp/xidlehook
-		cd /tmp/xidlehook || return 1
-		cargo build --release || return 1
-		sudo install -Dm755 target/release/xidlehook /usr/local/bin/xidlehook
+			# Cleanup
+			cd "$SCRIPT_DIR" || return 1
+			[ -d /tmp/xidlehook ] && rm -rf /tmp/xidlehook
 
-		# Cleanup
-		cd "$SCRIPT_DIR" || return 1
-		[ -d /tmp/xidlehook ] && rm -rf /tmp/xidlehook
-
-		echo "$LATEST_VER" >"$SCRIPT_DIR/.version_$package_name"
+			echo "$LATEST_VER" >"$SCRIPT_DIR/.version_$package_name"
+		)
 		log_success "Installed/Updated $package_name..."
 		;;
 	i3lockcolor)
 		log_info "Installing $package_name..."
 
-		# Check if already installed
-		if command -v i3lock >/dev/null 2>&1; then
-			if [ -f "$SCRIPT_DIR/.version_$package_name" ]; then
-				INSTALLED_VER=$(cat "$SCRIPT_DIR/.version_$package_name")
-			else
-				INSTALLED_VER=$(betterlockscreen --version 2>/dev/null | grep -m1 '^Betterlockscreen:' | awk '{print $3}')
+		(
+			local INSTALLED_VER
+			local LATEST_VER
+
+			# Check if already installed
+			if command -v i3lock >/dev/null 2>&1; then
+				if [ -f "$SCRIPT_DIR/.version_$package_name" ]; then
+					INSTALLED_VER=$(cat "$SCRIPT_DIR/.version_$package_name")
+				else
+					INSTALLED_VER=$(i3lock --version 2>&1 | awk '{print $3}')
+				fi
+				LATEST_VER=$(curl -s https://api.github.com/repos/Raymo111/i3lock-color/releases/latest | grep '"tag_name":' | cut -d'"' -f4)
+
+				if [ "$INSTALLED_VER" = "$LATEST_VER" ]; then
+					log_info "$package_name is up-to-date (version $INSTALLED_VER)."
+					log_success "$package_name is ready."
+					return 0
+				else
+					log_info "Updating $package_name from $INSTALLED_VER → $LATEST_VER"
+				fi
 			fi
-			LATEST_VER=$(curl -s https://api.github.com/repos/Raymo111/i3lock-color/releases/latest | grep '"tag_name":' | cut -d'"' -f4)
 
-			if [ "$INSTALLED_VER" = "$LATEST_VER" ]; then
-				log_info "$package_name is up-to-date (version $INSTALLED_VER)."
-				log_success "$package_name is ready."
-				return 0
-			else
-				log_info "Updating $package_name from $INSTALLED_VER → $LATEST_VER"
-			fi
-		fi
+			log_info "Installing dependencies for $package_name..."
 
-		log_info "Installing dependencies for $package_name..."
+			case "$DISTRO" in
+			arch)
+				support_pkgs=(autoconf cairo fontconfig gcc libev libjpeg-turbo libxinerama libxkbcommon-x11 libxrandr pam pkgconf
+					xcb-util-image xcb-util-xrm imagemagick xorg-xdpyinfo xorg-xrdb xorg-xset)
+				install_packages support_pkgs -d || return 1
+				;;
+			debian)
+				support_pkgs=(autoconf gcc make pkg-config libpam0g-dev libcairo2-dev libfontconfig1-dev libxcb-composite0-dev libev-dev
+					libx11-xcb-dev libxcb-xkb-dev libxcb-xinerama0-dev libxcb-randr0-dev libxcb-image0-dev libxcb-util0-dev libxcb-xrm-dev
+					libxkbcommon-dev libxkbcommon-x11-dev libjpeg-dev libgif-dev imagemagick x11-utils)
+				install_packages support_pkgs -d || return 1
+				;;
+			esac
 
-		case "$DISTRO" in
-		arch)
-			support_pkgs=(autoconf cairo fontconfig gcc libev libjpeg-turbo libxinerama libxkbcommon-x11 libxrandr pam pkgconf
-				xcb-util-image xcb-util-xrm imagemagick xorg-xdpyinfo xorg-xrdb xorg-xset)
-			install_packages support_pkgs -d || return 1
-			;;
-		debian)
-			support_pkgs=(autoconf gcc make pkg-config libpam0g-dev libcairo2-dev libfontconfig1-dev libxcb-composite0-dev libev-dev
-				libx11-xcb-dev libxcb-xkb-dev libxcb-xinerama0-dev libxcb-randr0-dev libxcb-image0-dev libxcb-util0-dev libxcb-xrm-dev
-				libxkbcommon-dev libxkbcommon-x11-dev libjpeg-dev libgif-dev imagemagick x11-utils)
-			install_packages support_pkgs -d || return 1
-			;;
-		esac
+			# Clean old build if present
+			[ -d /tmp/i3lock-color ] && rm -rf /tmp/i3lock-color
+			# Build from source
+			git clone https://github.com/Raymo111/i3lock-color.git /tmp/i3lock-color
+			cd /tmp/i3lock-color || return 1
+			./install-i3lock-color.sh
+			cd "$SCRIPT_DIR" || return 1
+			[ -d /tmp/i3lock-color ] && rm -rf /tmp/i3lock-color
 
-		# Clean old build if present
-		[ -d /tmp/i3lock-color ] && rm -rf /tmp/i3lock-color
-		# Build from source
-		git clone https://github.com/Raymo111/i3lock-color.git /tmp/i3lock-color
-		cd /tmp/i3lock-color || return 1
-		./install-i3lock-color.sh
-		cd "$SCRIPT_DIR" || return 1
-		[ -d /tmp/i3lock-color ] && rm -rf /tmp/i3lock-color
-
-		echo "$LATEST_VER" >"$SCRIPT_DIR/.version_$package_name"
+			echo "$LATEST_VER" >"$SCRIPT_DIR/.version_$package_name"
+		)
 		log_success "Installed/Updated $package_name..."
 		;;
 	betterlockscreen)
 		log_info "Installing $package_name..."
 
-		# Check if already installed
-		if command -v betterlockscreen >/dev/null 2>&1; then
-			if [ -f "$SCRIPT_DIR/.version_$package_name" ]; then
-				INSTALLED_VER=$(cat "$SCRIPT_DIR/.version_$package_name")
-			else
-				INSTALLED_VER=$(betterlockscreen --version 2>/dev/null | grep -m1 '^Betterlockscreen:' | awk '{print $3}')
+		(
+			local INSTALLED_VER
+			local LATEST_VER
+			# Check if already installed
+			if command -v betterlockscreen >/dev/null 2>&1; then
+				if [ -f "$SCRIPT_DIR/.version_$package_name" ]; then
+					INSTALLED_VER=$(cat "$SCRIPT_DIR/.version_$package_name")
+				else
+					INSTALLED_VER=$(betterlockscreen --version 2>/dev/null | grep -m1 '^Betterlockscreen:' | awk '{print $3}')
+				fi
+				LATEST_VER=$(curl -s https://api.github.com/repos/betterlockscreen/betterlockscreen/releases/latest | grep '"tag_name":' | cut -d'"' -f4)
+
+				if [ "$INSTALLED_VER" = "$LATEST_VER" ]; then
+					log_info "$package_name is up-to-date (version $INSTALLED_VER)."
+					log_success "$package_name is ready."
+					return 0
+				else
+					log_info "Updating $package_name from $INSTALLED_VER → $LATEST_VER"
+				fi
 			fi
-			LATEST_VER=$(curl -s https://api.github.com/repos/betterlockscreen/betterlockscreen/releases/latest | grep '"tag_name":' | cut -d'"' -f4)
 
-			if [ "$INSTALLED_VER" = "$LATEST_VER" ]; then
-				log_info "$package_name is up-to-date (version $INSTALLED_VER)."
-				log_success "$package_name is ready."
-				return 0
-			else
-				log_info "Updating $package_name from $INSTALLED_VER → $LATEST_VER"
-			fi
-		fi
+			log_info "Installing dependencies for $package_name..."
+			support_pkgs=(i3lock_color)
+			install_packages support_pkgs -d || return 1
 
-		log_info "Installing dependencies for $package_name..."
-		support_pkgs=(i3lock_color)
-		install_packages support_pkgs -d || return 1
+			# Clean old build if present
+			[ -d /tmp/betterlockscreen-main ] && rm -rf /tmp/betterlockscreen-main
+			[ -f /tmp/betterlockscreen.zip ] && rm -rf /tmp/betterlockscreen.zip
 
-		# Clean old build if present
-		[ -d /tmp/betterlockscreen-main ] && rm -rf /tmp/betterlockscreen-main
-		[ -f /tmp/betterlockscreen.zip ] && rm -rf /tmp/betterlockscreen.zip
+			# Download and install latest
+			wget -O /tmp/betterlockscreen.zip https://github.com/betterlockscreen/betterlockscreen/archive/refs/heads/main.zip
+			unzip /tmp/betterlockscreen.zip -d /tmp
+			cd /tmp/betterlockscreen-main || return 1
+			chmod u+x betterlockscreen
+			sudo cp betterlockscreen /usr/local/bin/
 
-		# Download and install latest
-		wget -O /tmp/betterlockscreen.zip https://github.com/betterlockscreen/betterlockscreen/archive/refs/heads/main.zip
-		unzip /tmp/betterlockscreen.zip -d /tmp
-		cd /tmp/betterlockscreen-main || return 1
-		chmod u+x betterlockscreen
-		sudo cp betterlockscreen /usr/local/bin/
+			# Cleanup
+			cd "$SCRIPT_DIR" || return 1
+			[ -d /tmp/betterlockscreen-main ] && rm -rf /tmp/betterlockscreen-main
+			[ -f /tmp/betterlockscreen.zip ] && rm -rf /tmp/betterlockscreen.zip
 
-		# Cleanup
-		cd "$SCRIPT_DIR" || return 1
-		[ -d /tmp/betterlockscreen-main ] && rm -rf /tmp/betterlockscreen-main
-		[ -f /tmp/betterlockscreen.zip ] && rm -rf /tmp/betterlockscreen.zip
-
-		echo "$LATEST_VER" >"$SCRIPT_DIR/.version_$package_name"
+			echo "$LATEST_VER" >"$SCRIPT_DIR/.version_$package_name"
+		)
 		log_success "Installed/Updated $package_name..."
 		;;
 	alacritty)
 		log_info "Installing $package_name..."
 
-		# Check if already installed
-		if command -v alacritty >/dev/null 2>&1; then
-			INSTALLED_VER=$(alacritty --version 2>&1 | awk '{print "v"$2}')
-			LATEST_VER=$(curl -s https://api.github.com/repos/alacritty/alacritty/releases/latest | grep '"tag_name":' | cut -d'"' -f4)
+		(
+			local INSTALLED_VER
+			local LATEST_VER
 
-			if [ "$INSTALLED_VER" = "$LATEST_VER" ]; then
-				log_info "$package_name is up-to-date (version $INSTALLED_VER)."
-				log_success "$package_name is ready."
-				return 0
-			else
-				log_info "Updating $package_name from $INSTALLED_VER → $LATEST_VER"
+			# Check if already installed
+			if command -v alacritty >/dev/null 2>&1; then
+				INSTALLED_VER=$(alacritty --version 2>&1 | awk '{print "v"$2}')
+				LATEST_VER=$(curl -s https://api.github.com/repos/alacritty/alacritty/releases/latest | grep '"tag_name":' | cut -d'"' -f4)
+
+				if [ "$INSTALLED_VER" = "$LATEST_VER" ]; then
+					log_info "$package_name is up-to-date (version $INSTALLED_VER)."
+					log_success "$package_name is ready."
+					return 0
+				else
+					log_info "Updating $package_name from $INSTALLED_VER → $LATEST_VER"
+				fi
 			fi
-		fi
 
-		log_info "Installing Desps for $package_name"
+			log_info "Installing Desps for $package_name"
 
-		case "$DISTRO" in
-		arch)
-			support_pkgs=(cmake freetype2 fontconfig pkg-config make libxcb libxkbcommon python gzip scdoc rust)
-			install_packages support_pkgs -d || return 1
-			;;
-		debian)
-			support_pkgs=(cmake g++ pkg-config libfontconfig1-dev libxcb-xfixes0-dev libxkbcommon-dev python3 gzip scdoc rust)
-			install_packages support_pkgs -d || return 1
-			;;
-		esac
+			case "$DISTRO" in
+			arch)
+				support_pkgs=(cmake freetype2 fontconfig pkg-config make libxcb libxkbcommon python gzip scdoc rust)
+				install_packages support_pkgs -d || return 1
+				;;
+			debian)
+				support_pkgs=(cmake g++ pkg-config libfontconfig1-dev libxcb-xfixes0-dev libxkbcommon-dev python3 gzip scdoc rust)
+				install_packages support_pkgs -d || return 1
+				;;
+			esac
 
-		# Clean old build if present
-		[ -d /tmp/alacritty ] && rm -rf /tmp/alacritty
+			# Clean old build if present
+			[ -d /tmp/alacritty ] && rm -rf /tmp/alacritty
 
-		# Download and install latest
-		git clone https://github.com/alacritty/alacritty.git /tmp/alacritty || return 1
-		cd /tmp/alacritty || return 1
+			# Download and install latest
+			git clone https://github.com/alacritty/alacritty.git /tmp/alacritty || return 1
+			cd /tmp/alacritty || return 1
 
-		# Build release binary
-		cargo build --release || return 1
+			# Build release binary
+			cargo build --release || return 1
 
-		# Install binary
-		sudo cp target/release/alacritty /usr/local/bin || return 1
+			# Install binary
+			sudo cp target/release/alacritty /usr/local/bin || return 1
 
-		# Install icon + desktop entry
-		sudo cp extra/logo/alacritty-term.svg /usr/share/pixmaps/Alacritty.svg || return 1
-		sudo desktop-file-install extra/linux/Alacritty.desktop || return 1
-		sudo update-desktop-database || return 1
+			# Install icon + desktop entry
+			sudo cp extra/logo/alacritty-term.svg /usr/share/pixmaps/Alacritty.svg || return 1
+			sudo desktop-file-install extra/linux/Alacritty.desktop || return 1
+			sudo update-desktop-database || return 1
 
-		# Install man pages
-		sudo mkdir -p /usr/local/share/man/man{1,5} || return 1
-		scdoc <extra/man/alacritty.1.scd | gzip -c | sudo tee /usr/local/share/man/man1/alacritty.1.gz >/dev/null || return 1
-		scdoc <extra/man/alacritty-msg.1.scd | gzip -c | sudo tee /usr/local/share/man/man1/alacritty-msg.1.gz >/dev/null || return 1
-		scdoc <extra/man/alacritty.5.scd | gzip -c | sudo tee /usr/local/share/man/man5/alacritty.5.gz >/dev/null || return 1
-		scdoc <extra/man/alacritty-bindings.5.scd | gzip -c | sudo tee /usr/local/share/man/man5/alacritty-bindings.5.gz >/dev/null || return 1
+			# Install man pages
+			sudo mkdir -p /usr/local/share/man/man{1,5} || return 1
+			scdoc <extra/man/alacritty.1.scd | gzip -c | sudo tee /usr/local/share/man/man1/alacritty.1.gz >/dev/null || return 1
+			scdoc <extra/man/alacritty-msg.1.scd | gzip -c | sudo tee /usr/local/share/man/man1/alacritty-msg.1.gz >/dev/null || return 1
+			scdoc <extra/man/alacritty.5.scd | gzip -c | sudo tee /usr/local/share/man/man5/alacritty.5.gz >/dev/null || return 1
+			scdoc <extra/man/alacritty-bindings.5.scd | gzip -c | sudo tee /usr/local/share/man/man5/alacritty-bindings.5.gz >/dev/null || return 1
 
-		# Cleanup
-		cd "$SCRIPT_DIR" || return 1
-		[ -d /tmp/alacritty ] && rm -rf /tmp/alacritty || return 1
+			# Cleanup
+			cd "$SCRIPT_DIR" || return 1
+			[ -d /tmp/alacritty ] && rm -rf /tmp/alacritty || return 1
+		)
 
 		log_success "Installed/Updated $package_name..."
 		;;
 	neovim)
 		log_info "Installing $package_name"
 
-		# Check if already installed
-		if command -v nvim >/dev/null 2>&1; then
-			INSTALLED_VER=$(nvim -v | head -n1 | awk '{print $2}')
-			LATEST_VER=$(curl -s https://api.github.com/repos/neovim/neovim/releases/latest | grep '"tag_name":' | cut -d'"' -f4)
+		(
+			local INSTALLED_VER
+			local LATEST_VER
 
-			if [ "$INSTALLED_VER" = "$LATEST_VER" ]; then
-				log_info "$package_name is up-to-date (version $INSTALLED_VER)."
-				log_success "$package_name is ready."
-				return 0
-			else
-				log_info "Updating $package_name from $INSTALLED_VER → $LATEST_VER"
+			# Check if already installed
+			if command -v nvim >/dev/null 2>&1; then
+				INSTALLED_VER=$(nvim -v | head -n1 | awk '{print $2}')
+				LATEST_VER=$(curl -s https://api.github.com/repos/neovim/neovim/releases/latest | grep '"tag_name":' | cut -d'"' -f4)
+
+				if [ "$INSTALLED_VER" = "$LATEST_VER" ]; then
+					log_info "$package_name is up-to-date (version $INSTALLED_VER)."
+					log_success "$package_name is ready."
+					return 0
+				else
+					log_info "Updating $package_name from $INSTALLED_VER → $LATEST_VER"
+				fi
 			fi
-		fi
 
-		log_info "Installing Desps for $package_name"
+			log_info "Installing Desps for $package_name"
 
-		case "$DISTRO" in
-		arch)
-			support_pkgs=(cmake ninja tree-sitter curl unzip gettext)
-			install_packages support_pkgs -d || return 1
-			;;
-		debian)
-			support_pkgs=(ninja-build gettext cmake unzip curl build-essential
-				pkg-config libtool libtool-bin autoconf automake g++ tree-sitter-cli)
-			install_packages support_pkgs -d || return 1
-			;;
-		esac
+			case "$DISTRO" in
+			arch)
+				support_pkgs=(cmake ninja tree-sitter curl unzip gettext)
+				install_packages support_pkgs -d || return 1
+				;;
+			debian)
+				support_pkgs=(ninja-build gettext cmake unzip curl build-essential
+					pkg-config libtool libtool-bin autoconf automake g++ tree-sitter-cli)
+				install_packages support_pkgs -d || return 1
+				;;
+			esac
 
-		# Clean old build if present
-		[ -d /tmp/neovim ] && rm -rf /tmp/neovim
+			# Clean old build if present
+			[ -d /tmp/neovim ] && rm -rf /tmp/neovim
 
-		# Clone source
-		git clone https://github.com/neovim/neovim /tmp/neovim
-		cd /tmp/neovim || return 1
+			# Clone source
+			git clone https://github.com/neovim/neovim /tmp/neovim
+			cd /tmp/neovim || return 1
 
-		# Build (release mode)
-		make CMAKE_BUILD_TYPE=Release
+			# Build (release mode)
+			make CMAKE_BUILD_TYPE=Release
 
-		# Install system-wide
-		sudo make install
+			# Install system-wide
+			sudo make install
 
-		# Cleanup
-		cd "$SCRIPT_DIR" || return 1
-		[ -d /tmp/neovim ] && rm -rf /tmp/neovim
-
+			# Cleanup
+			cd "$SCRIPT_DIR" || return 1
+			[ -d /tmp/neovim ] && rm -rf /tmp/neovim
+		)
 		log_success "Installed $package_name"
 		;;
 	rust)
