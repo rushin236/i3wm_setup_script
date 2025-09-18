@@ -451,7 +451,7 @@ install_special_packages() {
 				if [ -f "$SCRIPT_DIR/.version_$package_name" ]; then
 					INSTALLED_VER=$(cat "$SCRIPT_DIR/.version_$package_name")
 				else
-					INSTALLED_VER=$(betterlockscreen --version 2>/dev/null | grep -m1 '^Betterlockscreen:' | awk '{print $3}')
+					INSTALLED_VER=$(betterlockscreen --version 2>&1 | grep -m1 '^Betterlockscreen:' | awk '{print $3}')
 				fi
 				LATEST_VER=$(curl -s https://api.github.com/repos/betterlockscreen/betterlockscreen/tags | grep -m1 '"name": "v4.3.0"' | cut -d'"' -f4)
 
@@ -680,7 +680,7 @@ install_special_packages() {
 			# shellcheck source=/dev/null
 			source "$HOME/.cargo/env"
 			log_info "Sourced rustup environment."
-			retrun 0
+			return 0
 		fi
 
 		log_success "Installed $package_name"
