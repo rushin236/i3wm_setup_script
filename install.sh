@@ -372,6 +372,8 @@ install_special_packages() {
 			# Clean old build if present
 			[ -d /tmp/xidlehook ] && rm -rf /tmp/xidlehook
 
+			LATEST_VER=$(curl -s https://api.github.com/repos/jD91mZM2/xidlehook/tags | grep '"name":' | head -n 1 | cut -d'"' -f4)
+
 			# Build from source
 			git clone https://github.com/jD91mZM2/xidlehook.git /tmp/xidlehook
 			cd /tmp/xidlehook || return 1
