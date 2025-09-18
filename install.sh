@@ -778,6 +778,22 @@ install_special_packages() {
 		# Cleanup
 		[ -f ./Miniconda3-latest-Linux-x86_64.sh ] && rm -rf ./Miniconda3-latest-Linux-x86_64.sh
 
+		# Detect shell
+		local CURRENT_SHELL
+		CURRENT_SHELL=$(ps -p $$ -o comm=)
+
+		if [[ "$CURRENT_SHELL" == "bash" || "$CURRENT_SHELL" == "zsh" ]]; then
+			if [ -f "$HOME/miniconda3/etc/profile.d/conda.sh" ]; then
+				source "$HOME/miniconda3/etc/profile.d/conda.sh"
+			elif [ -f "$HOME/anaconda3/etc/profile.d/conda.sh" ]; then
+				source "$HOME/anaconda3/etc/profile.d/conda.sh"
+			else
+				echo "conda.sh not found!"
+			fi
+		else
+			echo "Unsupported shell: $CURRENT_SHELL"
+		fi
+
 		log_success "Installed $package_name..."
 		;;
 	easyeffects_fx)
