@@ -453,7 +453,7 @@ install_special_packages() {
 				else
 					INSTALLED_VER=$(betterlockscreen --version 2>/dev/null | grep -m1 '^Betterlockscreen:' | awk '{print $3}')
 				fi
-				LATEST_VER=$(curl -s https://api.github.com/repos/betterlockscreen/betterlockscreen/releases/latest | grep '"tag_name":' | cut -d'"' -f4)
+				LATEST_VER=$(curl -s https://api.github.com/repos/betterlockscreen/betterlockscreen/tags | grep -m1 '"name": "v4.3.0"' | cut -d'"' -f4)
 
 				if [ "$INSTALLED_VER" = "$LATEST_VER" ]; then
 					log_info "$package_name is up-to-date (version $INSTALLED_VER)."
@@ -529,6 +529,8 @@ install_special_packages() {
 			git clone https://github.com/alacritty/alacritty.git /tmp/alacritty || return 1
 			cd /tmp/alacritty || return 1
 
+			git checkout "tags/$LATEST_VER" -b "build-$LATEST_VER" || return 1
+
 			# Build release binary
 			cargo build --release || return 1
 
@@ -596,6 +598,8 @@ install_special_packages() {
 			git clone https://github.com/neovim/neovim /tmp/neovim
 			cd /tmp/neovim || return 1
 
+			git checkout "tags/$LATEST_VER" -b "build-$LATEST_VER" || return 1
+
 			# Build (release mode)
 			make CMAKE_BUILD_TYPE=Release
 
@@ -618,7 +622,7 @@ install_special_packages() {
 			# Check if already installed
 			if command -v yazi >/dev/null 2>&1; then
 				INSTALLED_VER=$(yazi --version | awk '{print "v"$2}')
-				LATEST_VER=$(curl -s https://api.github.com/repos/sxyazi/yazi/releases/latest | grep '"tag_name":' | cut -d'"' -f4 | sed 's/^v//')
+				LATEST_VER=$(curl -s https://api.github.com/repos/sxyazi/yazi/releases/latest | grep '"tag_name":' | cut -d'"' -f4)
 
 				if [ "$INSTALLED_VER" = "$LATEST_VER" ]; then
 					log_info "$package_name is up-to-date (version $INSTALLED_VER)."
@@ -633,32 +637,27 @@ install_special_packages() {
 
 			case "$DISTRO" in
 			arch)
-				support_pkgs=(ffmpeg 7zip jq poppler fd ripgrep zoxide resvg imagemagick)
+				support_pkgs=(ffmpeg 7zip jq poppler fd ripgrep zoxide resvg imagemagick rust)
 				install_packages support_pkgs -d || return 1
 				;;
 			debian)
-				support_pkgs=(ffmpeg p7zip-full jq poppler-utils fd-find ripgrep zoxide librsvg2-bin imagemagick unzip curl)
+				support_pkgs=(ffmpeg p7zip-full jq poppler-utils fd-find ripgrep zoxide librsvg2-bin imagemagick unzip curl rust)
 				install_packages support_pkgs -d || return 1
 				;;
 			esac
 
 			# Clean old build if present
 			[ -d /tmp/yazi ] && rm -rf /tmp/yazi
-			mkdir -p /tmp/yazi && cd /tmp/yazi || return 1
 
-			# Fetch latest release archive
-			LATEST_VER=$(curl -s https://api.github.com/repos/sxyazi/yazi/releases/latest | grep '"tag_name":' | cut -d'"' -f4)
-			ARCHIVE="yazi-${LATEST_VER}-x86_64-unknown-linux-gnu.zip"
-			URL="https://github.com/sxyazi/yazi/releases/download/${LATEST_VER}/${ARCHIVE}"
+			git clone https://github.com/sxyazi/yazi.git /tmp/yazi
+			cd /tmp/yazi || return 1
 
-			log_info "Downloading $package_name $LATEST_VER"
-			curl -LO "$URL" || return 1
-			unzip "$ARCHIVE" || return 1
+			git checkout "tags/$LATEST_VER" -b "build-$LATEST_VER" || return 1
+
+			cargo build --release --locked
 
 			# Install binaries
-			sudo mv yazi*/yazi /usr/local/bin/
-			sudo mv yazi*/ya /usr/local/bin/
-			sudo chmod +x /usr/local/bin/yazi /usr/local/bin/ya
+			sudo mv target/release/yazi target/release/ya /usr/local/bin/
 
 			# Cleanup
 			cd "$SCRIPT_DIR" || return 1
@@ -734,14 +733,22 @@ install_special_packages() {
 		git clone --depth 1 https://github.com/junegunn/fzf.git ~/.fzf || return 1
 		~/.fzf/install
 
+		local shell_name
+		shell_name=$(ps -p $$ -o comm=)
+
+		case "$shell_name" in
+		bash) source "$HOME/.fzf.bash" ;;
+		zsh) source "$HOME/.fzf.zsh" ;;
+		esac
+
 		log_success "Installed $package_name..."
 		;;
 	miniconda)
 		log_info "Installing $package_name..."
 
 		# Check if already installed
-		if command -v conda >/dev/null 2>&1; then
-			log_success "$package_name is ready."
+		if command -v conda >/dev/null 2>&1 || type conda >/dev/null 2>&1; then
+			log_success "conda is ready."
 			return 0
 		fi
 
