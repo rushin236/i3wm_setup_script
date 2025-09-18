@@ -82,6 +82,7 @@ declare -A I3_PACKAGES_DESC=(
 	[xidlehook]="Automatic screen locking daemon after a period of inactivity"
 	[easyeffects_fx]="Advanced audio effects and equalizer for PipeWire or PulseAudio"
 	[thunar_fe]="A good lightweight file explorer"
+	[yazi]="A terminal based file manager"
 )
 : "${I3_PACKAGES_DESC[@]}"
 
@@ -147,6 +148,7 @@ declare -A SPECIAL_PACKAGES=(
 	[thunar_fe]="thunar_fe"
 	[i3lock_color]="i3lockcolor"
 	[xidlehook]="xidlehook"
+	[yazi]="yazi"
 )
 
 # ────────────────────────────────────────────────
@@ -606,6 +608,64 @@ install_special_packages() {
 		)
 		log_success "Installed $package_name"
 		;;
+	yazi)
+		log_info "Installing $package_name"
+
+		(
+			local INSTALLED_VER
+			local LATEST_VER
+
+			# Check if already installed
+			if command -v yazi >/dev/null 2>&1; then
+				INSTALLED_VER=$(yazi --version | awk '{print "v"$2}')
+				LATEST_VER=$(curl -s https://api.github.com/repos/sxyazi/yazi/releases/latest | grep '"tag_name":' | cut -d'"' -f4 | sed 's/^v//')
+
+				if [ "$INSTALLED_VER" = "$LATEST_VER" ]; then
+					log_info "$package_name is up-to-date (version $INSTALLED_VER)."
+					log_success "$package_name is ready."
+					return 0
+				else
+					log_info "Updating $package_name from $INSTALLED_VER → $LATEST_VER"
+				fi
+			fi
+
+			log_info "Installing deps for $package_name"
+
+			case "$DISTRO" in
+			arch)
+				support_pkgs=(ffmpeg 7zip jq poppler fd ripgrep zoxide resvg imagemagick)
+				install_packages support_pkgs -d || return 1
+				;;
+			debian)
+				support_pkgs=(ffmpeg p7zip-full jq poppler-utils fd-find ripgrep zoxide librsvg2-bin imagemagick unzip curl)
+				install_packages support_pkgs -d || return 1
+				;;
+			esac
+
+			# Clean old build if present
+			[ -d /tmp/yazi ] && rm -rf /tmp/yazi
+			mkdir -p /tmp/yazi && cd /tmp/yazi || return 1
+
+			# Fetch latest release archive
+			LATEST_VER=$(curl -s https://api.github.com/repos/sxyazi/yazi/releases/latest | grep '"tag_name":' | cut -d'"' -f4)
+			ARCHIVE="yazi-${LATEST_VER}-x86_64-unknown-linux-gnu.zip"
+			URL="https://github.com/sxyazi/yazi/releases/download/${LATEST_VER}/${ARCHIVE}"
+
+			log_info "Downloading $package_name $LATEST_VER"
+			curl -LO "$URL" || return 1
+			unzip "$ARCHIVE" || return 1
+
+			# Install binaries
+			sudo mv yazi*/yazi /usr/local/bin/
+			sudo mv yazi*/ya /usr/local/bin/
+			sudo chmod +x /usr/local/bin/yazi /usr/local/bin/ya
+
+			# Cleanup
+			cd "$SCRIPT_DIR" || return 1
+			[ -d /tmp/yazi ] && rm -rf /tmp/yazi
+		)
+		log_success "Installed $package_name"
+		;;
 	rust)
 		log_info "Installing $package_name"
 
@@ -773,7 +833,7 @@ install_special_packages() {
 		esac
 
 		# Clone the repo
-		git clone https://gitlab.com/coolercontrol/coolercontrol.git /tmp/coolercontrol
+		git clone https://gitlab.com/ccoolercontroloolercontrol/coolercontrol.git /tmp/coolercontrol
 		cd /tmp/coolercontrol || exit 1
 
 		# Switch to main branch and pull latest
@@ -908,6 +968,7 @@ install_from_array() {
 }
 
 install_i3wm_setup() {
+	print_line -s
 	local msg=""
 	local choice=""
 	while true; do
@@ -936,9 +997,11 @@ install_i3wm_setup() {
 			;;
 		esac
 	done
+	print_line -e
 }
 
 install_dev_tools() {
+	print_line -s
 	local msg=""
 	local choice=""
 	while true; do
@@ -967,10 +1030,214 @@ install_dev_tools() {
 			;;
 		esac
 	done
+	print_line -e
 }
 
-setup_i3wm_dev_config() {
+declare -A ALL_CONFIGS=(
+	[alacritty]="alacritty config"
+	[bash]=".bashrc config"
+	[betterlockscreen]="betterlockscreen config"
+	[clangformat]="c language formatting config"
+	[dunst]="notification manager config"
+	[i3]="i3wm config"
+	[nvim]="neovim config based on lazyvim setup"
+	[picom]="picom config for animation and transperency for TWM"
+	[polybar]="task bar config"
+	[rofi]="config for menues in TWM"
+	[tmux]="tmux config with vim motions"
+	[xinitrc]="config for TWM start up"
+	[yazi]="config for terminal based file manager"
+	[zsh]="shell config with better vim motion support"
+)
+: "${ALL_CONFIGS[@]}"
+
+declare -A ALL_CONFIGS_PATHS=(
+	[alacritty]="$HOME/.config/alacritty/alacritty.yml"
+	[bash]="$HOME/.bashrc"
+	[betterlockscreen]="$HOME/.config/betterlockscreen/betterlockscreenrc"
+	[clangformat]="$HOME/.clang-format"
+	[dunst]="$HOME/.config/dunst/dunstrc"
+	[i3]="$HOME/.config/i3/config"
+	[nvim]="$HOME/.config/nvim"
+	[picom]="$HOME/.config/picom/picom.conf"
+	[polybar]="$HOME/.config/polybar/config"
+	[rofi]="$HOME/.config/rofi/config.rasi"
+	[tmux]="$HOME/.tmux.conf"
+	[xinitrc]="$HOME/.xinitrc"
+	[yazi]="$HOME/.config/yazi/config.toml"
+	[zsh]="$HOME/.zshrc"
+)
+: "${ALL_CONFIGS_PATHS[@]}"
+
+set_config() {
+	local -n arr=$1 # Reference to passed array of keys
+	local source_dir="$HOME/.dotfiles"
+
+	# Ensure .dotfiles repo is cloned
+	if [ ! -d "$source_dir" ]; then
+		echo "Cloning dotfiles repo..."
+		git clone https://github.com/rushin236/.dotfiles.git "$source_dir" || return 1
+	fi
+
+	for key in "${arr[@]}"; do
+		local target="${ALL_CONFIGS_PATHS[$key]}"
+
+		if [ -z "$target" ]; then
+			echo "⚠️  Unknown key: $key"
+			continue
+		fi
+
+		echo "Processing: $key → $target"
+
+		# Backup existing config if it exists
+		if [ -e "$target" ] || [ -L "$target" ]; then
+			local backup="${target}.bak"
+			echo "Backing up $target → $backup"
+			mv -f "$target" "$backup"
+		fi
+
+		# Run stow
+		echo "Stowing $key..."
+		stow --target="$HOME" --dir="$source_dir" "$key"
+	done
+
+	return 0
+}
+
+setup_config_from_array() {
+	local -n arr=$1 # create a nameref to the array
+	local mode=$2
+	local array_name=$1
+
+	if [ "$mode" = "all" ]; then
+		# Get all package values
+		local all_configs=()
+		for key in "${!arr[@]}"; do
+			all_configs+=("$key")
+		done
+
+		log_info "Setting up all configs from $array_name..."
+
+		if set_config all_configs; then
+			log_success "Successfully setup all configs from all_configs"
+			press_enter
+			return 0
+		else
+			log_error "Failed to setup some configs from all_configs"
+			press_enter
+			return 1
+		fi
+	elif [ "$mode" = "select" ]; then
+		local msg=""
+		local selected_configs=()
+		declare -A index_configs=()
+		while true; do
+			clear
+			local choice=""
+			local i=1
+
+			echo "=== Select to setup ==="
+			for key in "${!arr[@]}"; do
+				echo "$i) $key: ${arr[$key]}"
+				index_configs[$i]="$key"
+				((i++))
+			done
+
+			# Show install option if something is selected
+			if [ ${#selected_configs[@]} -gt 0 ]; then
+				echo "$i) Setup selected configs"
+				local install_option=$i
+				((i++))
+			fi
+
+			echo "$i) Back"
+			local back_option=$i
+
+			echo
+			echo "$msg"
+			read -rp "Enter your choice: " choice </dev/tty >/dev/tty
+
+			# Check if input is a valid number
+			if ! [[ "$choice" =~ ^[0-9]+$ ]]; then
+				msg="Invalid option: not a number"
+				continue
+			fi
+
+			# Check for back option
+			if [ "$choice" -eq "$back_option" ]; then
+				return 0
+			fi
+
+			# Check for install option
+			if [ -n "${install_option:-}" ] && [ "$choice" -eq "$install_option" ]; then
+				if set_config selected_configs; then
+					log_success "Successfully setup all configs from selected_configs"
+					press_enter
+					return 0
+				else
+					log_error "Failed to setup some configs from selected_configs"
+					press_enter
+					return 1
+				fi
+			fi
+
+			# Check if input maps to a valid package
+			if [ -z "${index_configs[$choice]}" ]; then
+				msg="Invalid option: out of range"
+				continue
+			fi
+
+			# Check if package is already selected
+			local config
+			config="${index_configs[$choice]}"
+			found=0
+			for sel in "${selected_configs[@]}"; do
+				if [ "$sel" = "$config" ]; then
+					found=1
+					break
+				fi
+			done
+
+			if [ "$found" -eq 1 ]; then
+				msg="Config '$config' is already selected"
+			else
+				selected_configs+=("$config")
+				msg=""
+			fi
+		done
+	fi
+}
+
+setup_config() {
 	print_line -s
+	local msg=""
+	local choice=""
+	while true; do
+		clear
+		echo
+		echo "======= Config Setup  ========"
+		echo "1) Setup all configs"
+		echo "2) Select configs to setup"
+		echo "3) Back to main menu"
+		echo "$msg"
+		echo "=============================="
+		read -rp "Choose an option: " choice </dev/tty >/dev/tty
+
+		case "$choice" in
+		1)
+			setup_config_from_array ALL_CONFIGS "all"
+			msg=""
+			;;
+		2)
+			setup_config_from_array ALL_CONFIGS "select"
+			msg=""
+			;;
+		3) return ;;
+		*)
+			msg="Invalid option '$choice'"
+			;;
+		esac
+	done
 	print_line -e
 }
 
@@ -999,7 +1266,7 @@ main_menu() {
 			msg=""
 			;;
 		3)
-			setup_i3wm_dev_config
+			setup_config
 			msg=""
 			;;
 		4)
