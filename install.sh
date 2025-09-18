@@ -429,6 +429,9 @@ install_special_packages() {
 
 			# Clean old build if present
 			[ -d /tmp/i3lock-color ] && rm -rf /tmp/i3lock-color
+
+			LATEST_VER=$(curl -s https://api.github.com/repos/Raymo111/i3lock-color/releases/latest | grep '"tag_name":' | cut -d'"' -f4)
+
 			# Build from source
 			git clone https://github.com/Raymo111/i3lock-color.git /tmp/i3lock-color
 			cd /tmp/i3lock-color || return 1
@@ -471,6 +474,8 @@ install_special_packages() {
 			# Clean old build if present
 			[ -d /tmp/betterlockscreen-main ] && rm -rf /tmp/betterlockscreen-main
 			[ -f /tmp/betterlockscreen.zip ] && rm -rf /tmp/betterlockscreen.zip
+
+			LATEST_VER=$(curl -s https://api.github.com/repos/betterlockscreen/betterlockscreen/tags | grep -m1 '"name": "v4.3.0"' | cut -d'"' -f4)
 
 			# Download and install latest
 			wget -O /tmp/betterlockscreen.zip https://github.com/betterlockscreen/betterlockscreen/archive/refs/heads/main.zip
@@ -528,6 +533,8 @@ install_special_packages() {
 			# Download and install latest
 			git clone https://github.com/alacritty/alacritty.git /tmp/alacritty || return 1
 			cd /tmp/alacritty || return 1
+
+			LATEST_VER=$(curl -s https://api.github.com/repos/alacritty/alacritty/releases/latest | grep '"tag_name":' | cut -d'"' -f4)
 
 			git checkout "tags/$LATEST_VER" -b "build-$LATEST_VER" || return 1
 
@@ -598,6 +605,8 @@ install_special_packages() {
 			git clone https://github.com/neovim/neovim /tmp/neovim
 			cd /tmp/neovim || return 1
 
+			LATEST_VER=$(curl -s https://api.github.com/repos/neovim/neovim/releases/latest | grep '"tag_name":' | cut -d'"' -f4)
+
 			git checkout "tags/$LATEST_VER" -b "build-$LATEST_VER" || return 1
 
 			# Build (release mode)
@@ -648,6 +657,8 @@ install_special_packages() {
 
 			# Clean old build if present
 			[ -d /tmp/yazi ] && rm -rf /tmp/yazi
+
+			LATEST_VER=$(curl -s https://api.github.com/repos/sxyazi/yazi/releases/latest | grep '"tag_name":' | cut -d'"' -f4)
 
 			git clone https://github.com/sxyazi/yazi.git /tmp/yazi
 			cd /tmp/yazi || return 1
