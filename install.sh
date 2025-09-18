@@ -1292,10 +1292,10 @@ install_required_packages() {
 
 	case "$DISTRO" in
 	arch)
-		required_pkgs=(wget base-devel unzip curl make python libdrm)
+		required_pkgs=(wget base-devel unzip curl make python libdrm stow)
 		;;
 	debian)
-		required_pkgs=(wget build-essential unzip curl make python3 python3-pip libdrm-dev)
+		required_pkgs=(wget build-essential unzip curl make python3 python3-pip libdrm-dev stow)
 		;;
 	*)
 		log_error "Unsupported distro: $DISTRO"
