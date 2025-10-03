@@ -470,7 +470,7 @@ install_special_packages() {
 			fi
 
 			log_info "Installing dependencies for $package_name..."
-			support_pkgs=(i3lock_color)
+			support_pkgs=(i3lock_color bc)
 			install_packages support_pkgs -d || return 1
 
 			# Clean old build if present
